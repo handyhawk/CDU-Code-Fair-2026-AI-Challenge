@@ -1,6 +1,6 @@
 import re
 from typing import List, Tuple
-from models import UrgencyLevel, LLMAnalysis, FinalTriageResult
+from backend.models import UrgencyLevel, LLMAnalysis, FinalTriageResult
 
 CRITICAL_TRIGGERS = [
     r"\b(suicide|self-harm|kill myself|end my life)\b",

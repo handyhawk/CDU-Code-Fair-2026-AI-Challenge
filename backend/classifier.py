@@ -1,6 +1,6 @@
 import json
 from openai import OpenAI
-from models import LLMAnalysis, UrgencyLevel
+from backend.models import LLMAnalysis, UrgencyLevel
 
 client = OpenAI()
 
