@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from backend.models import TriageRequest, FinalTriageResult, UrgencyLevel, LLMAnalysis
-from backend.classifier import analyze_message
+from models import TriageRequest, FinalTriageResult, UrgencyLevel, LLMAnalysis
+from classifier import analyze_message
 from safe_engine import apply_safety_rules
 
 app = FastAPI(title="HumanFirst Triage Engine")

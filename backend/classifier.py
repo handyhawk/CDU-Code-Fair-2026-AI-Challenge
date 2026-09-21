@@ -1,9 +1,9 @@
 import json
 from openai import OpenAI
-from backend.models import LLMAnalysis, UrgencyLevel
-
+from models import LLMAnalysis, UrgencyLevel
+ 
 client = OpenAI()
-
+ 
 SYSTEM_PROMPT = """
 You triage incoming public correspondence for a government department.
 Tasks:
@@ -14,7 +14,7 @@ Tasks:
 5. If Normal or High, draft a neutral acknowledgment. If Critical, set draft_acknowledgement to null (humans must respond).
 Respond strictly in JSON matching the requested schema.
 """
-
+ 
 def analyze_message(content: str) -> LLMAnalysis:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -27,3 +27,4 @@ def analyze_message(content: str) -> LLMAnalysis:
     )
     data = json.loads(response.choices[0].message.content)
     return LLMAnalysis(**data)
+ 
