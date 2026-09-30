@@ -43,7 +43,7 @@ You need Python 3.10 or newer.
 **Start the backend** (does the analysis, keeps the data):
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install flask pandas scikit-learn
 python app.py
 ```
 Leave this running — it serves on `http://localhost:5000`.
