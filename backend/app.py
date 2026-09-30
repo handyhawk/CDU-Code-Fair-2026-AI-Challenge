@@ -1,15 +1,9 @@
-"""
-Run:
-    python app.py
-    (defaults to training from ./data/training_cases.csv on startup if
-    that file exists, so the very first request already has a model.)
-"""
-
 import os
 import tempfile
 
 from flask import Flask, jsonify, request
 
+import database
 from data_loader import load_training_data, load_inbox_csv
 from urgency_analyzer import UrgencyAnalyzer
 
@@ -54,7 +48,8 @@ def triage():
         return jsonify({"error": "Request body must include a non-empty 'message'."}), 400
 
     result = analyzer.analyze(message)
-    return jsonify(result.to_dict())
+    stored = database.insert_case(result.to_dict(), source="single")
+    return jsonify(stored)
 
 
 @app.route("/train", methods=["POST"])
@@ -90,10 +85,11 @@ def analyze():
     try:
         df = load_inbox_csv(tmp_path)
         results = analyzer.analyze_batch(df["message"])
-        summary = UrgencyAnalyzer.summarize(results)
+        stored = database.insert_cases_batch([r.to_dict() for r in results], source="batch")
+        summary = database.summarize_cases(stored)
         return jsonify({
             "summary": summary,
-            "results": [r.to_dict() for r in results],
+            "results": stored,
         })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -101,6 +97,59 @@ def analyze():
         os.remove(tmp_path)
 
 
+def _parse_escalate_param():
+    raw = request.args.get("escalate_to_human")
+    if raw is None:
+        return None
+    return raw.strip().lower() in {"1", "true", "yes"}
+
+
+@app.route("/cases", methods=["GET"])
+def list_cases():
+    limit = request.args.get("limit", type=int)
+    cases = database.get_cases(
+        urgency=request.args.get("urgency"),
+        category=request.args.get("category"),
+        escalate_to_human=_parse_escalate_param(),
+        limit=limit,
+    )
+    return jsonify({"cases": cases, "count": len(cases)})
+
+
+@app.route("/cases/summary", methods=["GET"])
+def cases_summary():
+    cases = database.get_cases(
+        urgency=request.args.get("urgency"),
+        category=request.args.get("category"),
+        escalate_to_human=_parse_escalate_param(),
+    )
+    return jsonify(database.summarize_cases(cases))
+
+
+@app.route("/cases/<int:case_id>/review", methods=["POST"])
+def review_case(case_id):
+    payload = request.get_json(silent=True) or {}
+    human_urgency = payload.get("human_urgency", "").strip()
+    human_notes = payload.get("human_notes", "").strip()
+
+    if human_urgency not in {"Critical", "High", "Normal"}:
+        return jsonify({
+            "error": "human_urgency must be one of 'Critical', 'High', 'Normal'."
+        }), 400
+
+    updated = database.update_review(case_id, human_urgency, human_notes)
+    if updated is None:
+        return jsonify({"error": f"No case with id {case_id}."}), 404
+    return jsonify(updated)
+
+
+@app.route("/cases", methods=["DELETE"])
+def delete_all_cases():
+    removed = database.clear_cases()
+    return jsonify({"deleted": removed})
+
+
 if __name__ == "__main__":
+    database.init_db()
     _try_initial_training()
     app.run(host="0.0.0.0", port=5000, debug=True)
