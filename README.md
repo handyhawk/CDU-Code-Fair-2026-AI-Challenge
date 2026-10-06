@@ -44,6 +44,7 @@ You need Python 3.10 or newer.
 ```bash
 cd backend
 pip install -r requirements.txt
+Set-Content -Path .env -Value "OPENAI_API_KEY=sk-your-key-here"
 python app.py
 ```
 Leave this running — it serves on `http://localhost:5000`.
