@@ -210,8 +210,27 @@ table.hf-table th{position:sticky; top:0; background:var(--hf-head); color:var(-
   padding:9px 10px; border-bottom:1px solid var(--hf-line); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em;}
 table.hf-table td{padding:9px 10px; border-bottom:1px solid var(--hf-line-2); vertical-align:middle; color:var(--hf-ink);}
 table.hf-table tr:hover td{background:var(--hf-hover);}
-td.hf-msg{min-width:260px; color:var(--hf-ink-2) !important;}
-table.hf-table td:nth-child(1), table.hf-table td:nth-child(2){white-space:nowrap;}
+table.hf-table{table-layout:fixed;}
+table.hf-table th:nth-child(1){width:64px;} table.hf-table th:nth-child(2){width:118px;}
+table.hf-table th:nth-child(4){width:170px;} table.hf-table th:nth-child(5){width:96px;}
+table.hf-table th:nth-child(6){width:190px;}
+table.hf-table td{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+td.hf-msg{color:var(--hf-ink) !important;}
+td.hf-id, td.hf-age, td.hf-team{color:var(--hf-muted) !important;}
+.hf-was{font-size:.7rem; color:var(--hf-muted); margin-top:2px;}
+.hf-st{display:inline-flex; align-items:center; white-space:nowrap; font-size:.8rem; font-weight:600; color:var(--hf-ink-2);}
+.hf-st::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:1px;}
+.hf-st.need::before{background:var(--hf-high);}
+.hf-st.done::before{background:var(--hf-norm);}
+.hf-st.over::before{background:var(--hf-navy-2);}
+.hf-st.none{color:var(--hf-muted); font-weight:400;} .hf-st.none::before{background:var(--hf-line);}
+.hf-tag{margin-left:10px; font-size:.75rem; font-weight:600; color:var(--hf-high);}
+.hf-guide{display:grid; grid-template-columns:max-content 1fr; gap:9px 14px; align-items:center; font-size:.82rem;
+  color:var(--hf-ink-2); min-width:380px;}
+/* quiet one-line summary */
+.hf-summary{display:flex; gap:22px; flex-wrap:wrap; font-size:.88rem; color:var(--hf-muted); margin:0 0 12px;}
+.hf-summary b{color:var(--hf-heading); font-size:1.05rem; margin-right:4px;}
+.hf-summary .crit b{color:var(--hf-crit);}
 
 /* KPI + bars */
 [data-testid="stHeaderActionElements"]{display:none !important;}
@@ -324,6 +343,7 @@ body{background:var(--hf-bg) !important; color:var(--hf-ink);}
 [data-testid="stMultiSelect"] [role="group"] input{background:transparent !important;}
 [data-testid="stSelectbox"] [role="group"] svg, [data-testid="stMultiSelect"] [role="group"] > div:last-child svg{
   color:var(--hf-muted) !important;}
+[data-testid="stPopoverBody"]{background:var(--hf-card) !important; border:1px solid var(--hf-line) !important;}
 [data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]{background:var(--hf-card) !important;
   border:1px solid var(--hf-line) !important;}
 [data-testid="stSelectboxVirtualDropdown"] *, [data-testid="stMultiSelectDropdown"] *{color:var(--hf-ink) !important;}
@@ -692,30 +712,61 @@ def render_case(case: dict):
     )
 
 
+def time_ago(iso_timestamp) -> str:
+    try:
+        created = datetime.fromisoformat(str(iso_timestamp).replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    if created.tzinfo is None:
+        created = created.astimezone()
+    minutes = int((datetime.now().astimezone() - created).total_seconds() // 60)
+    if minutes < 1:
+        return "just now"
+    if minutes < 60:
+        return f"{minutes}m ago"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}h ago"
+    return f"{minutes // (60 * 24)}d ago"
+
+
+def status_cell(case: dict) -> str:
+    """Quiet text status. Only exceptions (fallback model) get an extra tag."""
+    if case.get("human_reviewed"):
+        state = ("over", "Overridden") if was_overridden(case) else ("done", "Confirmed")
+    elif case.get("escalate_to_human"):
+        state = ("need", "Awaiting review")
+    else:
+        state = ("none", "Not required")
+    html_ = f'<span class="hf-st {state[0]}">{state[1]}</span>'
+    if case.get("provisional") and not case.get("human_reviewed"):
+        html_ += '<span class="hf-tag" title="Local ML fallback result. A person must check it.">Fallback</span>'
+    return html_
+
+
 def render_table(cases: list, limit: int = 60):
+    """Compact, one line per case: urgency, message, team, age, status."""
     if not cases:
         return
     rows = ""
     for case in cases[:limit]:
-        shown = urgency_badge(case.get("urgency", "Normal"))
+        urgency = urgency_badge(current_urgency(case))
         if was_overridden(case):
-            shown += f' &rarr; {urgency_badge(case["human_urgency"])}'
-        message = case.get("message") or ""
-        short = message if len(message) <= 110 else message[:107] + "..."
+            urgency += f'<div class="hf-was">AI: {esc(case.get("urgency"))}</div>'
         rows += (
-            f'<tr><td>#{esc(case.get("id"))}</td><td>{esc(fmt_time(case.get("created_at")))}</td>'
-            f"<td>{shown}</td><td>{esc(case.get('category'))}</td><td>{esc(case.get('route'))}</td>"
-            f"<td>{mode_chip(case)}{provisional_chip(case)}</td><td>{review_chip(case)}</td>"
-            f'<td class="hf-msg">{esc(short)}</td></tr>'
+            f'<tr><td class="hf-id">#{esc(case.get("id"))}</td><td>{urgency}</td>'
+            f'<td class="hf-msg" title="{esc(case.get("message"))}">{esc(case.get("message"))}</td>'
+            f'<td class="hf-team">{esc(case.get("route"))}</td>'
+            f'<td class="hf-age" title="{esc(fmt_time(case.get("created_at")))}">{esc(time_ago(case.get("created_at")))}</td>'
+            f"<td>{status_cell(case)}</td></tr>"
         )
     st.markdown(
-        '<div class="hf-table-wrap"><table class="hf-table"><thead><tr><th>ID</th><th>Received</th>'
-        "<th>Urgency</th><th>Category</th><th>Routed to</th><th>Analysed by</th><th>Review</th><th>Message</th>"
+        '<div class="hf-table-wrap"><table class="hf-table"><thead><tr><th>Case</th><th>Urgency</th>'
+        "<th>Message</th><th>Routed to</th><th>Received</th><th>Status</th>"
         f"</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True,
     )
     if len(cases) > limit:
-        st.caption(f"Showing the first {limit} of {len(cases)} matching cases.")
+        st.caption(f"Showing the first {limit} of {len(cases)} cases.")
 
 
 def render_kpis(items: list):
@@ -748,20 +799,18 @@ def render_intro(title: str, text: str):
 
 
 def render_legend():
-    """A one-line key so anyone watching the demo can read the labels."""
-    st.markdown(
-        '<div class="hf-legend">'
-        '<div class="grp"><span class="lbl">Urgency</span>'
-        f'{urgency_badge("Critical")}{urgency_badge("High")}{urgency_badge("Normal")}</div>'
-        '<div class="grp"><span class="lbl">Analysed by</span>'
-        '<span class="hf-chip openai">OpenAI</span><span class="hf-chip local">Local ML fallback</span>'
-        '<span class="hf-chip prov">Provisional</span></div>'
-        '<div class="grp"><span class="lbl">Human review</span>'
-        '<span class="hf-chip need">Awaiting human review</span><span class="hf-chip done">Human confirmed</span>'
-        '<span class="hf-chip over">Human override</span></div>'
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    """Key to the labels, shown inside the 'Label guide' pop-up."""
+    rows = [
+        (f'{urgency_badge("Critical")}', "Immediate risk to health, safety or shelter"),
+        (f'{urgency_badge("High")}', "Time-sensitive, needs priority review"),
+        (f'{urgency_badge("Normal")}', "Routine enquiry"),
+        ('<span class="hf-st need">Awaiting review</span>', "A person must confirm or override"),
+        ('<span class="hf-st done">Confirmed</span>', "Reviewer agreed with the AI"),
+        ('<span class="hf-st over">Overridden</span>', "Reviewer changed the urgency (reason recorded)"),
+        ('<span class="hf-tag" style="margin:0">Fallback</span>', "OpenAI unavailable; local model used, result provisional"),
+    ]
+    body = "".join(f'<div class="k">{k}</div><div class="d">{esc(d)}</div>' for k, d in rows)
+    st.markdown(f'<div class="hf-guide">{body}</div>', unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1052,29 +1101,32 @@ if page == PAGES[0]:
 
 # ---- Review queue -----------------------------------------------------------
 if page == PAGES[1]:
-    render_intro("Review queue",
-                 "Cases waiting for a person, most urgent first. Open a case to confirm or override the AI.")
+    render_intro("Review queue", "Most urgent first. Open a case to confirm or override the AI.")
     if cases_error:
         st.error(f"Could not load cases. {cases_error}")
     elif not cases:
         render_empty("No cases yet. Analyse a message or upload a CSV to start the queue.")
     else:
         awaiting = [c for c in cases if needs_review(c)]
-        render_kpis([
-            ("Awaiting human review", len(awaiting), "Critical and High cases not yet decided", "high"),
-            ("Critical waiting", sum(current_urgency(c) == "Critical" for c in awaiting), "Highest priority", "crit"),
-            ("Provisional (Local ML)", sum(bool(c.get("provisional")) and not c.get("human_reviewed") for c in cases),
-             "Fallback results to verify", ""),
-            ("Reviewed", sum(bool(c.get("human_reviewed")) for c in cases), f"of {len(cases)} cases", "norm"),
-        ])
+        st.markdown(
+            '<div class="hf-summary">'
+            f'<span><b>{len(awaiting)}</b>awaiting review</span>'
+            f'<span class="crit"><b>{sum(current_urgency(c) == "Critical" for c in awaiting)}</b>critical</span>'
+            f'<span><b>{sum(bool(c.get("provisional")) for c in awaiting)}</b>on fallback model</span>'
+            f'<span><b>{sum(bool(c.get("human_reviewed")) for c in cases)}</b>reviewed</span></div>',
+            unsafe_allow_html=True,
+        )
 
-        render_legend()
         v = st.session_state["q_filters_version"]
-        f1, f2, f3 = st.columns(3)
-        status = f1.selectbox("Status", ["Awaiting review", "Reviewed", "All cases"], key=f"q_status_{v}")
-        levels = f2.multiselect("Urgency", URGENCY_ORDER, default=URGENCY_ORDER, key=f"q_levels_{v}")
-        modes = f3.multiselect("Analysed by", ["OpenAI", "Local ML"], default=["OpenAI", "Local ML"],
-                               key=f"q_modes_{v}")
+        c_status, c_filters, c_guide = st.columns([5, 1.1, 1.3], vertical_alignment="center")
+        status = c_status.radio("Show", ["Awaiting review", "Reviewed", "All cases"], horizontal=True,
+                                label_visibility="collapsed", key=f"q_status_{v}")
+        with c_filters.popover("Filters", icon=":material/filter_list:", width="stretch"):
+            levels = st.multiselect("Urgency", URGENCY_ORDER, default=URGENCY_ORDER, key=f"q_levels_{v}")
+            modes = st.multiselect("Analysed by", ["OpenAI", "Local ML"], default=["OpenAI", "Local ML"],
+                                   key=f"q_modes_{v}")
+        with c_guide.popover("Label guide", icon=":material/help_outline:", width="stretch"):
+            render_legend()
 
         shown = [
             c for c in cases
@@ -1084,20 +1136,18 @@ if page == PAGES[1]:
             and (status != "Awaiting review" or needs_review(c))
         ]
         shown = sort_queue(shown)
-        st.caption("Most urgent first. Within the same level, the case that has waited longest is at the top.")
 
         if not shown:
             render_empty("No cases match these filters.")
         else:
             render_table(shown)
-            st.markdown("### Open a case")
             by_id = {c["id"]: c for c in shown}
             options = [0] + list(by_id)
             pending = st.session_state.pop("pending_case", None)
             if pending in by_id:
                 st.session_state["queue_case"] = pending
             chosen = st.selectbox(
-                "Case", options, key="queue_case",
+                "Open a case", options, key="queue_case",
                 format_func=lambda i: "Select a case..." if i == 0
                 else f"#{i} · {current_urgency(by_id[i])} · {(by_id[i].get('message') or '')[:70]}",
             )
