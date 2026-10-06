@@ -142,6 +142,45 @@ h3{font-size:1.05rem !important; margin-top:.4rem;}
 .hf-chip.done{background:var(--hf-norm-bg); color:var(--hf-norm-ink); border-color:var(--hf-norm-line); font-weight:600;}
 .hf-chip.none{background:var(--hf-sunken); color:var(--hf-muted);}
 .hf-chip.risk{background:var(--hf-card); color:var(--hf-chip-ink);}
+.hf-chip.over{background:var(--hf-info-bg); color:var(--hf-info-ink); border-color:var(--hf-info-line); font-weight:600;}
+.hf-chip.local{background:var(--hf-chip-bg); color:var(--hf-chip-ink); border-color:var(--hf-chip-line); border-style:dashed;}
+.hf-chip.openai{font-weight:600;}
+
+/* status markers: shape + colour, so meaning never relies on colour alone */
+.hf-badge::before, .hf-chip.openai::before, .hf-chip.local::before{content:""; display:inline-block; width:7px; height:7px;
+  border-radius:50%; margin-right:6px; vertical-align:1px;}
+.hf-badge.crit::before{background:var(--hf-crit); border-radius:1px; transform:rotate(45deg);}
+.hf-badge.high::before{background:var(--hf-high);}
+.hf-badge.norm::before{background:transparent; border:2px solid var(--hf-norm); width:5px; height:5px;}
+.hf-chip.openai::before{background:var(--hf-openai-ink);}
+.hf-chip.local::before{background:transparent; border:1.5px solid var(--hf-chip-ink); width:5px; height:5px;}
+.hf-chip.prov::before{content:"!"; font-weight:800; margin-right:5px;}
+.hf-chip.need::before{content:"\\25F7"; margin-right:5px;}
+.hf-chip.done::before{content:"\\2713"; margin-right:5px; font-weight:800;}
+.hf-chip.over::before{content:"\\21BA"; margin-right:5px; font-weight:800;}
+
+/* page intro */
+.hf-intro{margin:6px 0 14px;}
+.hf-intro h2{font-size:1.3rem !important; margin:0 !important; padding:0 !important; color:var(--hf-heading) !important;}
+.hf-intro p{margin:2px 0 0; color:var(--hf-muted) !important; font-size:.9rem;}
+
+/* status key */
+.hf-legend{display:flex; flex-wrap:wrap; gap:6px 18px; align-items:center; background:var(--hf-card);
+  border:1px solid var(--hf-line); border-radius:6px; padding:10px 14px; margin:0 0 14px; font-size:.78rem; color:var(--hf-muted);}
+.hf-legend .grp{display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+.hf-legend .lbl{font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:.66rem; margin-right:2px;}
+
+/* human review decision panel */
+.hf-decision{background:var(--hf-card); border:1px solid var(--hf-line); border-top:4px solid var(--hf-navy-2);
+  border-radius:6px; padding:14px 16px; margin:4px 0 10px;}
+.hf-decision .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:.88rem; color:var(--hf-ink);}
+.hf-decision .muted{color:var(--hf-muted); font-size:.8rem; margin-top:6px;}
+.hf-record{border-radius:6px; padding:12px 14px; border:1px solid; margin:4px 0 10px; font-size:.88rem;}
+.hf-record.done{background:var(--hf-norm-bg); border-color:var(--hf-norm-line); color:var(--hf-norm-ink);}
+.hf-record.over{background:var(--hf-info-bg); border-color:var(--hf-info-line); color:var(--hf-info-ink);}
+.hf-record .t{font-weight:700; margin-bottom:6px;}
+.hf-record .row{display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:4px;}
+.hf-record .meta{font-size:.78rem; opacity:.85; margin-top:4px;}
 
 /* case card */
 .hf-case{background:var(--hf-card); border:1px solid var(--hf-line); border-left:6px solid var(--hf-line);
@@ -157,6 +196,7 @@ h3{font-size:1.05rem !important; margin-top:.4rem;}
 .hf-fact{border:1px solid var(--hf-line-2); border-radius:4px; padding:8px 10px; background:var(--hf-card);}
 .hf-fact .k{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--hf-muted);}
 .hf-fact .v{font-size:.92rem; font-weight:600; color:var(--hf-ink); margin-top:2px;}
+.hf-fact .sub{font-size:.7rem; color:var(--hf-muted); margin-top:2px; line-height:1.3;}
 .hf-label{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--hf-muted); margin:14px 0 4px;}
 .hf-text{font-size:.92rem; color:var(--hf-ink); line-height:1.45;}
 .hf-note{border-radius:4px; padding:9px 12px; font-size:.86rem; margin-top:10px; border:1px solid;}
@@ -175,7 +215,8 @@ td.hf-msg{min-width:260px; color:var(--hf-ink-2) !important;}
 table.hf-table td:nth-child(1), table.hf-table td:nth-child(2){white-space:nowrap;}
 
 /* KPI + bars */
-.hf-kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:6px 0 16px;}
+[data-testid="stHeaderActionElements"]{display:none !important;}
+.hf-kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:6px 0 16px;}
 .hf-kpi{background:var(--hf-card); border:1px solid var(--hf-line); border-top:4px solid var(--hf-navy-2); border-radius:6px; padding:12px 14px;}
 .hf-kpi.crit{border-top-color:var(--hf-crit);} .hf-kpi.high{border-top-color:var(--hf-high);}
 .hf-kpi.norm{border-top-color:var(--hf-norm);}
@@ -196,7 +237,8 @@ button[kind="primary"]{background:var(--hf-accent) !important; border-color:var(
 button[kind="primary"], button[kind="primary"] *{color:var(--hf-on-accent) !important;}
 button[kind="primary"]:hover{background:var(--hf-navy-2) !important;}
 button[kind="primary"]:disabled{background:var(--hf-disabled) !important; border-color:var(--hf-disabled) !important; opacity:1;}
-div[role="radiogroup"]{gap:8px; padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--hf-line);}
+div[role="radiogroup"]{gap:8px;}
+.st-key-page div[role="radiogroup"]{padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--hf-line);}
 [data-testid="stRadioOption"], label[data-baseweb="radio"]{background:var(--hf-card); border:1px solid var(--hf-line);
   border-radius:4px; padding:6px 16px; margin:0; cursor:pointer;}
 [data-testid="stRadioOption"] > div > div:first-child, label[data-baseweb="radio"] > div:first-child{display:none;}
@@ -343,12 +385,21 @@ def urgency_badge(urgency: str, large: bool = False) -> str:
 
 def mode_chip(case: dict) -> str:
     mode = case.get("analysis_mode") or "Unknown"
-    css = "openai" if mode == "OpenAI" else "local"
-    return f'<span class="hf-chip {css}">{esc(mode)}</span>'
+    if mode == "OpenAI":
+        return '<span class="hf-chip openai" title="Classified by the primary OpenAI model">OpenAI</span>'
+    return (
+        '<span class="hf-chip local" title="OpenAI was unavailable, so the local fallback model was used">'
+        f"{esc(mode)} fallback</span>"
+    )
 
 
 def provisional_chip(case: dict) -> str:
-    return '<span class="hf-chip prov">Provisional</span>' if case.get("provisional") else ""
+    if not case.get("provisional"):
+        return ""
+    return (
+        '<span class="hf-chip prov" title="Fallback result. A person must check it before any action.">'
+        "Provisional</span>"
+    )
 
 
 def needs_review(case: dict) -> bool:
@@ -357,7 +408,9 @@ def needs_review(case: dict) -> bool:
 
 def review_chip(case: dict) -> str:
     if case.get("human_reviewed"):
-        return '<span class="hf-chip done">Human reviewed</span>'
+        if was_overridden(case):
+            return '<span class="hf-chip over">Human override</span>'
+        return '<span class="hf-chip done">Human confirmed</span>'
     if case.get("escalate_to_human"):
         return '<span class="hf-chip need">Awaiting human review</span>'
     return '<span class="hf-chip none">No review required</span>'
@@ -578,10 +631,14 @@ def render_case(case: dict):
         ("Category", case.get("category") or "Unclassified"),
         ("Routed to", case.get("route") or "Unclassified"),
         ("Escalation tier", case.get("escalation") or "No"),
-        ("Confidence", confidence_text(case)),
+        ("Model confidence", confidence_text(case)),
     ]
     facts_html = "".join(
-        f'<div class="hf-fact"><div class="k">{k}</div><div class="v">{esc(v)}</div></div>' for k, v in facts
+        f'<div class="hf-fact"><div class="k">{k}</div><div class="v">{esc(v)}</div>'
+        + ('<div class="sub">OpenAI gives no calibrated probability</div>'
+           if k == "Model confidence" and case.get("analysis_mode") == "OpenAI" else "")
+        + "</div>"
+        for k, v in facts
     )
 
     risks = case.get("matched_risk_keywords") or []
@@ -605,11 +662,6 @@ def render_case(case: dict):
     if safety:
         text = "; ".join(map(str, safety)) if isinstance(safety, list) else str(safety)
         notes += f'<div class="hf-note warn"><b>Safety Engine.</b> {esc(text)}</div>'
-    if case.get("analysis_mode") == "OpenAI":
-        notes += (
-            '<div class="hf-note info">Confidence is not shown for OpenAI results because the model does '
-            "not provide a calibrated probability.</div>"
-        )
 
     st.markdown(
         f'<div class="hf-case {URGENCY_CLASS.get(urgency, "norm")}">'
@@ -641,7 +693,7 @@ def render_table(cases: list, limit: int = 60):
         )
     st.markdown(
         '<div class="hf-table-wrap"><table class="hf-table"><thead><tr><th>ID</th><th>Received</th>'
-        "<th>Urgency</th><th>Category</th><th>Routed to</th><th>Source</th><th>Review</th><th>Message</th>"
+        "<th>Urgency</th><th>Category</th><th>Routed to</th><th>Analysed by</th><th>Review</th><th>Message</th>"
         f"</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True,
     )
@@ -674,57 +726,109 @@ def render_empty(text: str):
     st.markdown(f'<div class="hf-empty">{esc(text)}</div>', unsafe_allow_html=True)
 
 
+def render_intro(title: str, text: str):
+    st.markdown(f'<div class="hf-intro"><h2>{esc(title)}</h2><p>{esc(text)}</p></div>', unsafe_allow_html=True)
+
+
+def render_legend():
+    """A one-line key so anyone watching the demo can read the labels."""
+    st.markdown(
+        '<div class="hf-legend">'
+        '<div class="grp"><span class="lbl">Urgency</span>'
+        f'{urgency_badge("Critical")}{urgency_badge("High")}{urgency_badge("Normal")}</div>'
+        '<div class="grp"><span class="lbl">Analysed by</span>'
+        '<span class="hf-chip openai">OpenAI</span><span class="hf-chip local">Local ML fallback</span>'
+        '<span class="hf-chip prov">Provisional</span></div>'
+        '<div class="grp"><span class="lbl">Human review</span>'
+        '<span class="hf-chip need">Awaiting human review</span><span class="hf-chip done">Human confirmed</span>'
+        '<span class="hf-chip over">Human override</span></div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Human review
 # ---------------------------------------------------------------------------
 
-def render_review(case: dict, prefix: str):
+def render_review(case: dict, prefix: str, next_case_id=None):
+    """Human decision step. The AI recommends; the reviewer confirms or overrides (with a reason)."""
     case_id = case["id"]
+    ai_urgency = case.get("urgency", "Normal")
     st.markdown("### Human review")
 
-    def review_form(default: str, default_notes: str, button_label: str):
+    def review_form(default: str, default_notes: str, editing: bool):
         key = f"{prefix}_{case_id}"
-        final = st.selectbox(
-            "Final urgency",
-            URGENCY_ORDER,
+        final = st.radio(
+            "Final urgency", URGENCY_ORDER, horizontal=True, key=f"final_{key}",
             index=URGENCY_ORDER.index(default) if default in URGENCY_ORDER else 2,
-            key=f"final_{key}",
-            help="Defaults to the AI recommendation. Change it to override.",
+            format_func=lambda u: f"{u}  (AI)" if u == ai_urgency else u,
+            help="Starts on the AI recommendation, marked (AI). Pick another level to override it.",
         )
-        notes = st.text_input("Reviewer notes (optional)", value=default_notes, key=f"notes_{key}")
+        overriding = final != ai_urgency
+        notes = st.text_area(
+            "Reason for override (required)" if overriding else "Reviewer notes (optional)",
+            value=default_notes, key=f"notes_{key}", height=80,
+            placeholder="Why does this case need a different urgency?" if overriding
+            else "Anything the next person should know",
+        )
         with st.expander("Draft acknowledgement (not sent automatically)"):
             st.text_area("Draft", value=ACK_TEMPLATES[final], height=110, key=f"ack_{key}_{final}")
             st.caption("A draft only. Staff decide whether and how to use it.")
-        if st.button(button_label, type="primary", key=f"save_{key}"):
+
+        missing_reason = overriding and not notes.strip()
+        if editing:
+            label = "Update decision"
+        else:
+            label = f"Override to {final}" if overriding else f"Confirm {final}"
+        if missing_reason:
+            st.caption("Add a reason to override the AI recommendation. It is kept with the case for accountability.")
+        if st.button(label, type="primary", key=f"save_{key}", disabled=missing_reason):
             try:
                 updated = api(
                     "POST", f"/cases/{case_id}/review", timeout=15,
-                    json={"human_urgency": final, "human_notes": notes},
+                    json={"human_urgency": final, "human_notes": notes.strip()},
                 )
-                st.session_state["flash"] = f"Decision saved for case #{updated['id']}."
-                if st.session_state.get("last_result", {}) and st.session_state["last_result"].get("id") == case_id:
+                verb = "overridden to" if final != ai_urgency else "confirmed as"
+                flash = f"Case #{updated['id']} {verb} {final}."
+                if prefix == "queue" and next_case_id and not editing:
+                    st.session_state["pending_case"] = next_case_id
+                    flash += f" Opened the next waiting case, #{next_case_id}."
+                st.session_state["flash"] = flash
+                if st.session_state.get("last_result") and st.session_state["last_result"].get("id") == case_id:
                     st.session_state["last_result"] = updated
                 st.rerun()
             except requests.exceptions.RequestException as exc:
                 st.error(explain_error(exc))
 
     if case.get("human_reviewed"):
-        outcome = "Overridden by reviewer" if was_overridden(case) else "Confirmed by reviewer"
-        note = f' &middot; &ldquo;{esc(case["human_notes"])}&rdquo;' if case.get("human_notes") else ""
+        overridden = was_overridden(case)
+        note = f'<div>&ldquo;{esc(case["human_notes"])}&rdquo;</div>' if case.get("human_notes") else ""
+        change = (
+            f"AI recommended {urgency_badge(ai_urgency)} &rarr; reviewer set {urgency_badge(case.get('human_urgency'))}"
+            if overridden else f"Reviewer confirmed the AI recommendation {urgency_badge(ai_urgency)}"
+        )
         st.markdown(
-            f'<div class="hf-note ok"><b>{outcome}.</b> AI recommended {esc(case.get("urgency"))}; '
-            f'final urgency is <b>{esc(case.get("human_urgency"))}</b>{note}'
-            f' &middot; {esc(fmt_time(case.get("reviewed_at")))}</div>',
+            f'<div class="hf-record {"over" if overridden else "done"}">'
+            f'<div class="t">{"Decision recorded: human override" if overridden else "Decision recorded: confirmed"}</div>'
+            f'<div class="row">{change}</div>{note}'
+            f'<div class="meta">Recorded {esc(fmt_time(case.get("reviewed_at")))}</div></div>',
             unsafe_allow_html=True,
         )
         with st.expander("Change this decision"):
-            review_form(case.get("human_urgency"), case.get("human_notes") or "", "Update decision")
+            review_form(case.get("human_urgency"), case.get("human_notes") or "", editing=True)
     else:
-        if case.get("escalate_to_human"):
-            st.caption("Review required. Confirm the AI recommendation or override it.")
-        else:
-            st.caption("Review is optional for this case. You can still confirm or override it.")
-        review_form(case.get("urgency", "Normal"), "", "Save decision")
+        required = case.get("escalate_to_human")
+        st.markdown(
+            '<div class="hf-decision"><div class="row">AI recommendation: '
+            f"{urgency_badge(ai_urgency)}{mode_chip(case)}{provisional_chip(case)}</div>"
+            '<div class="muted">'
+            + ("Review required before any action. Confirm the recommendation or override it."
+               if required else "Review is optional for this case. You can still confirm or override it.")
+            + "</div></div>",
+            unsafe_allow_html=True,
+        )
+        review_form(ai_urgency, "", editing=False)
 
 
 # ---------------------------------------------------------------------------
@@ -781,9 +885,8 @@ if st.session_state.get("flash_warning"):
 cases, cases_error = get_cases()
 
 PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
-st.session_state.setdefault("q_status", "Awaiting review")
-st.session_state.setdefault("q_levels", list(URGENCY_ORDER))
-st.session_state.setdefault("q_modes", ["OpenAI", "Local ML"])
+# Bumping this number gives the queue filters fresh keys, i.e. resets them to their defaults.
+st.session_state.setdefault("q_filters_version", 0)
 
 
 def go_to(page_name: str):
@@ -797,8 +900,8 @@ def new_message():
 
 def review_next(case_id: int):
     # Reset the queue filters so the chosen case is guaranteed to be in the list.
-    st.session_state.update(page=PAGES[1], q_status="Awaiting review", q_levels=list(URGENCY_ORDER),
-                            q_modes=["OpenAI", "Local ML"], queue_case=case_id)
+    st.session_state["q_filters_version"] += 1
+    st.session_state.update(page=PAGES[1], pending_case=case_id)
 
 
 awaiting_all = sort_queue([c for c in cases if needs_review(c)])
@@ -871,6 +974,8 @@ page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed",
 
 # ---- Triage ---------------------------------------------------------------
 if page == PAGES[0]:
+    render_intro("Triage a message",
+                 "Paste an incoming message. The AI recommends an urgency, category and team; a person makes the decision.")
     left, right = st.columns([2, 3], gap="large")
 
     def use_example():
@@ -918,6 +1023,8 @@ if page == PAGES[0]:
 
 # ---- Review queue -----------------------------------------------------------
 if page == PAGES[1]:
+    render_intro("Review queue",
+                 "Cases waiting for a person, most urgent first. Open a case to confirm or override the AI.")
     if cases_error:
         st.error(f"Could not load cases. {cases_error}")
     elif not cases:
@@ -932,10 +1039,13 @@ if page == PAGES[1]:
             ("Reviewed", sum(bool(c.get("human_reviewed")) for c in cases), f"of {len(cases)} cases", "norm"),
         ])
 
+        render_legend()
+        v = st.session_state["q_filters_version"]
         f1, f2, f3 = st.columns(3)
-        status = f1.selectbox("Status", ["Awaiting review", "Reviewed", "All cases"], key="q_status")
-        levels = f2.multiselect("Urgency", URGENCY_ORDER, key="q_levels")
-        modes = f3.multiselect("Source", ["OpenAI", "Local ML"], key="q_modes")
+        status = f1.selectbox("Status", ["Awaiting review", "Reviewed", "All cases"], key=f"q_status_{v}")
+        levels = f2.multiselect("Urgency", URGENCY_ORDER, default=URGENCY_ORDER, key=f"q_levels_{v}")
+        modes = f3.multiselect("Analysed by", ["OpenAI", "Local ML"], default=["OpenAI", "Local ML"],
+                               key=f"q_modes_{v}")
 
         shown = [
             c for c in cases
@@ -954,21 +1064,25 @@ if page == PAGES[1]:
             st.markdown("### Open a case")
             by_id = {c["id"]: c for c in shown}
             options = [0] + list(by_id)
+            pending = st.session_state.pop("pending_case", None)
+            if pending in by_id:
+                st.session_state["queue_case"] = pending
             chosen = st.selectbox(
                 "Case", options, key="queue_case",
                 format_func=lambda i: "Select a case..." if i == 0
                 else f"#{i} · {current_urgency(by_id[i])} · {(by_id[i].get('message') or '')[:70]}",
             )
             if chosen in by_id:
+                waiting_ids = [c["id"] for c in sort_queue([c for c in cases if needs_review(c)]) if c["id"] != chosen]
                 render_case(by_id[chosen])
-                render_review(by_id[chosen], "queue")
+                render_review(by_id[chosen], "queue", next_case_id=waiting_ids[0] if waiting_ids else None)
 
 # ---- Batch -----------------------------------------------------------------
 if page == PAGES[2]:
-    st.markdown("### Batch upload")
+    render_intro("Batch upload", "Triage a whole inbox export at once. Every row is saved to the case store.")
     st.write(
-        "Upload a CSV with a `message` column. Each row goes through the same pipeline as a single "
-        "message and is saved to the case store."
+        "Upload a CSV with a `message` (or `text`) column. Each row goes through the same pipeline as a "
+        "single message."
     )
     uploaded = st.file_uploader("CSV file", type=["csv"])
     messages, read_error = read_batch_messages(uploaded) if uploaded else ([], None)
@@ -1017,6 +1131,7 @@ if page == PAGES[2]:
 
 # ---- Dashboard ---------------------------------------------------------------
 if page == PAGES[3]:
+    render_intro("Dashboard", "How the inbox is being handled: urgency mix, review progress and how often staff override the AI.")
     if cases_error:
         st.error(f"Could not load cases. {cases_error}")
     elif not cases:
@@ -1043,7 +1158,7 @@ if page == PAGES[3]:
                         [(u, now.count(u), URGENCY_COLOR[u]) for u in URGENCY_ORDER])
             render_bars("Analysis source", [
                 ("OpenAI", sum(c.get("analysis_mode") == "OpenAI" for c in cases), "var(--hf-navy-2)"),
-                ("Local ML (provisional)", len(provisional), "var(--hf-muted)"),
+                ("Local ML fallback", len(provisional), "var(--hf-muted)"),
             ])
         with c2:
             render_bars("Category", [(cat, sum(c.get("category") == cat for c in cases), "var(--hf-navy-2)") for cat in CATEGORIES])
