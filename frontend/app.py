@@ -205,6 +205,28 @@ div[role="radiogroup"]{gap:8px; padding-bottom:12px; margin-bottom:6px; border-b
   background:var(--hf-accent); border-color:var(--hf-accent);}
 [data-testid="stRadioOption"][data-selected="true"] p, label[data-baseweb="radio"]:has(input:checked) p{color:var(--hf-on-accent);}
 .hf-toggle-row{display:flex; justify-content:flex-end;}
+
+/* sidebar */
+[data-testid="stSidebar"]{border-right:1px solid var(--hf-line);}
+[data-testid="stSidebarHeader"]{height:2.6rem; padding-top:.6rem; padding-bottom:0; margin-bottom:0;}
+[data-testid="stSidebarUserContent"]{padding-top:0 !important;}
+.hf-side-brand{display:flex; align-items:center; gap:10px; padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--hf-line);}
+.hf-side-logo{width:34px; height:34px; border-radius:8px; background:var(--hf-banner); color:#fff; font-weight:800;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; letter-spacing:.02em;
+  border-bottom:3px solid var(--hf-banner-edge);}
+.hf-side-name{font-weight:700; color:var(--hf-heading); line-height:1.1;}
+.hf-side-tag{font-size:.72rem; color:var(--hf-muted);}
+.hf-side-h{font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--hf-muted); font-weight:700; margin:16px 0 6px;}
+.hf-side-stat{display:flex; justify-content:space-between; align-items:center; padding:7px 10px; margin-bottom:5px;
+  background:var(--hf-sunken); border:1px solid var(--hf-line-2); border-left:4px solid var(--hf-line); border-radius:5px;
+  font-size:.83rem; color:var(--hf-ink);}
+.hf-side-stat b{font-size:1rem; color:var(--hf-heading);}
+.hf-side-stat.crit{border-left-color:var(--hf-crit);} .hf-side-stat.high{border-left-color:var(--hf-high);}
+.hf-side-stat.norm{border-left-color:var(--hf-norm);}
+.hf-side-sys{font-size:.8rem; color:var(--hf-ink); line-height:1.9;}
+.hf-side-sys .hf-dot{vertical-align:middle;}
+.hf-side-sys .muted{color:var(--hf-muted); font-size:.72rem;}
+.hf-side-foot{font-size:.72rem; color:var(--hf-muted); margin-top:18px; padding-top:10px; border-top:1px solid var(--hf-line); line-height:1.5;}
 </style>
 """
 
@@ -383,6 +405,29 @@ def cases_to_csv(cases: list) -> str:
             row["matched_risk_keywords"] = ", ".join(row["matched_risk_keywords"])
         writer.writerow(row)
     return buffer.getvalue()
+
+
+def waiting_since(cases: list) -> str:
+    """How long the oldest case awaiting review has been waiting, e.g. '2h 15m'."""
+    times = []
+    for case in cases:
+        try:
+            created = datetime.fromisoformat(str(case.get("created_at")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if created.tzinfo is None:
+            created = created.astimezone()
+        times.append(created)
+    if not times:
+        return "-"
+    minutes = int((datetime.now().astimezone() - min(times)).total_seconds() // 60)
+    if minutes < 1:
+        return "just now"
+    if minutes < 60:
+        return f"{minutes}m"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}h {minutes % 60}m"
+    return f"{minutes // (60 * 24)}d {minutes // 60 % 24}h"
 
 
 # ---------------------------------------------------------------------------
@@ -690,7 +735,7 @@ st.set_page_config(
     page_title="HumanFirst AI",
     page_icon="\U0001F4E8",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 def _theme_from_url() -> bool:
     # ?theme=light / ?theme=dark in the address bar keeps the choice across page refreshes.
@@ -715,9 +760,13 @@ for key, default in {
     st.session_state.setdefault(key, default)
 
 with st.sidebar:
-    st.subheader("Connection")
-    st.session_state["backend_url"] = st.text_input("Backend URL", value=st.session_state["backend_url"])
-    st.caption("Cases are stored by the backend and persist across restarts.")
+    # Settings first: the URL must be known before the backend is contacted below.
+    side_top = st.container()
+    side_bottom = st.container()
+    with side_bottom:
+        with st.expander("Connection settings"):
+            st.session_state["backend_url"] = st.text_input("Backend URL", value=st.session_state["backend_url"])
+            st.caption("Cases are stored by the backend and persist across restarts.")
 
 health = get_health()
 render_header(health)
@@ -730,20 +779,95 @@ if st.session_state.get("flash_warning"):
     st.session_state["flash_warning"] = None
 
 cases, cases_error = get_cases()
+
+PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
+st.session_state.setdefault("q_status", "Awaiting review")
+st.session_state.setdefault("q_levels", list(URGENCY_ORDER))
+st.session_state.setdefault("q_modes", ["OpenAI", "Local ML"])
+
+
+def go_to(page_name: str):
+    st.session_state["page"] = page_name
+
+
+def new_message():
+    st.session_state.update(page=PAGES[0], message_input="", last_result=None, last_error=None,
+                            example_choice="Choose an example...")
+
+
+def review_next(case_id: int):
+    # Reset the queue filters so the chosen case is guaranteed to be in the list.
+    st.session_state.update(page=PAGES[1], q_status="Awaiting review", q_levels=list(URGENCY_ORDER),
+                            q_modes=["OpenAI", "Local ML"], queue_case=case_id)
+
+
+awaiting_all = sort_queue([c for c in cases if needs_review(c)])
+with side_top:
+    st.markdown(
+        '<div class="hf-side-brand"><div class="hf-side-logo">HF</div><div>'
+        '<div class="hf-side-name">HumanFirst AI</div><div class="hf-side-tag">Inbox triage console</div></div></div>',
+        unsafe_allow_html=True,
+    )
+    st.toggle("Dark mode", key="dark_mode", on_change=_remember_theme,
+              help="Switch between dark and light colours. Your choice is kept if you refresh the page.")
+
+    st.markdown('<div class="hf-side-h">Inbox at a glance</div>', unsafe_allow_html=True)
+    critical_waiting = sum(current_urgency(c) == "Critical" for c in awaiting_all)
+    st.markdown(
+        f'<div class="hf-side-stat crit">Critical waiting <b>{critical_waiting}</b></div>'
+        f'<div class="hf-side-stat high">Awaiting review <b>{len(awaiting_all)}</b></div>'
+        f'<div class="hf-side-stat">Oldest waiting <b>{esc(waiting_since(awaiting_all))}</b></div>'
+        f'<div class="hf-side-stat norm">Total cases <b>{len(cases)}</b></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="hf-side-h">Quick actions</div>', unsafe_allow_html=True)
+    if awaiting_all:
+        top = awaiting_all[0]
+        st.button(f"Review next case (#{top['id']}, {current_urgency(top)})", width="stretch", type="primary",
+                  on_click=review_next, args=(top["id"],), icon=":material/assignment_ind:")
+    else:
+        st.button("No cases waiting", width="stretch", disabled=True, icon=":material/task_alt:")
+    st.button("New message", width="stretch", on_click=new_message, icon=":material/edit_note:")
+    st.button("Upload a batch", width="stretch", on_click=go_to, args=(PAGES[2],), icon=":material/upload_file:")
+    st.button("Refresh data", width="stretch", icon=":material/refresh:")  # any click reruns the app
+    st.download_button(
+        "Export all cases (CSV)", data=cases_to_csv(cases), width="stretch", disabled=not cases,
+        file_name=f"humanfirst_cases_{datetime.now():%Y%m%d_%H%M%S}.csv", mime="text/csv",
+        icon=":material/download:",
+    )
+
+    st.markdown('<div class="hf-side-h">System status</div>', unsafe_allow_html=True)
+    if health is None:
+        sys_rows = '<span class="hf-dot bad"></span>Backend unreachable'
+    else:
+        trained = health.get("local_model_trained")
+        sys_rows = (
+            '<span class="hf-dot ok"></span>Backend online<br>'
+            f'<span class="hf-dot ok"></span>Primary: {esc(health.get("primary_model", "OpenAI"))}<br>'
+            f'<span class="hf-dot {"ok" if trained else "warn"}"></span>Fallback: '
+            f'{esc(health.get("fallback_model", "Local ML"))} {"ready" if trained else "not trained"}'
+        )
+    st.markdown(
+        f'<div class="hf-side-sys">{sys_rows}<br><span class="muted">Last checked {datetime.now():%H:%M:%S}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+with side_bottom:
+    st.markdown(
+        '<div class="hf-side-foot"><b>The AI assists, staff decide.</b> Every Critical or High case '
+        "goes to a person before any action.<br>CDU IT Code Fair 2026 &middot; Team HumanFirst</div>",
+        unsafe_allow_html=True,
+    )
+
 if health is None:
     st.error(
         f"The backend at {st.session_state['backend_url']} is not reachable. "
-        "Start it with `python app.py` in the backend folder, or change the URL in the sidebar."
+        "Start it with `python app.py` in the backend folder, or change it under Connection settings in the sidebar."
     )
 
 # A radio (not st.tabs) so the chosen section survives the reruns that follow saving a decision.
-PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
-nav_col, theme_col = st.columns([6, 1], vertical_alignment="center")
-with nav_col:
-    page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed", key="page")
-with theme_col:
-    st.toggle("Dark mode", key="dark_mode", on_change=_remember_theme,
-              help="Switch between dark and light colours. Your choice is kept if you refresh the page.")
+page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed", key="page")
 
 # ---- Triage ---------------------------------------------------------------
 if page == PAGES[0]:
@@ -809,9 +933,9 @@ if page == PAGES[1]:
         ])
 
         f1, f2, f3 = st.columns(3)
-        status = f1.selectbox("Status", ["Awaiting review", "Reviewed", "All cases"])
-        levels = f2.multiselect("Urgency", URGENCY_ORDER, default=URGENCY_ORDER)
-        modes = f3.multiselect("Source", ["OpenAI", "Local ML"], default=["OpenAI", "Local ML"])
+        status = f1.selectbox("Status", ["Awaiting review", "Reviewed", "All cases"], key="q_status")
+        levels = f2.multiselect("Urgency", URGENCY_ORDER, key="q_levels")
+        modes = f3.multiselect("Source", ["OpenAI", "Local ML"], key="q_modes")
 
         shown = [
             c for c in cases
