@@ -6,7 +6,8 @@ Government / service-portal style interface for the triage backend.
 Backend contract used here (see backend/app.py):
     GET    /health                  -> status, local_model_trained
     POST   /triage                  -> analyse one message, returns the stored case
-    POST   /analyze                 -> analyse a CSV, returns {"summary", "results"}
+    (Batch upload reads the CSV here and calls /triage once per row, so it can
+     show live progress. /analyze still exists on the backend but is not used.)
     GET    /cases                   -> {"cases": [...]}  (newest first)
     POST   /cases/<id>/review       -> save the human decision
     DELETE /cases                   -> delete all stored cases
@@ -308,6 +309,87 @@ def explain_error(exc: Exception) -> str:
     return f"The backend returned an error: {exc}"
 
 
+# Same column names the backend accepts in data_loader.COLUMN_ALIASES.
+MESSAGE_COLUMN_ALIASES = {"message", "text", "message_text", "content"}
+
+
+def read_batch_messages(uploaded):
+    """Read the uploaded CSV in the browser session. Returns (messages, error)."""
+    import pandas as pd  # installed with Streamlit
+
+    raw = uploaded.getvalue()
+    df = None
+    for encoding in ("utf-8-sig", "cp1252"):  # cp1252 covers CSVs saved from Excel on Windows
+        try:
+            df = pd.read_csv(io.BytesIO(raw), encoding=encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+        except Exception as exc:  # empty file, malformed rows, ...
+            return [], f"Could not read this CSV: {exc}"
+    if df is None:
+        return [], "Could not read this CSV. Save it as UTF-8 and try again."
+
+    column = next(
+        (c for c in df.columns if str(c).strip().lower().replace(" ", "_") in MESSAGE_COLUMN_ALIASES), None
+    )
+    if column is None:
+        return [], f"The CSV needs a `message` (or `text`) column. Found: {', '.join(map(str, df.columns))}"
+
+    messages = []
+    for index, value in df[column].items():
+        if pd.isna(value) or not str(value).strip():
+            continue
+        messages.append((index + 2, str(value).strip()))  # +2 = spreadsheet row (header is row 1)
+    if not messages:
+        return [], "The message column is empty."
+    return messages, None
+
+
+def run_batch(messages):
+    """Send each message to /triage one at a time, showing live progress."""
+    total = len(messages)
+    progress = st.progress(0.0, text=f"Starting... 0 of {total}")
+    counts_slot = st.empty()
+    latest_slot = st.empty()
+    results, failed, skipped = [], [], 0
+    started = datetime.now()
+
+    for i, (row, text) in enumerate(messages, start=1):
+        try:
+            case = api("POST", "/triage", timeout=120, json={"message": text})
+            results.append(case)
+            latest = (f"Row {row} → <b>{esc(case.get('urgency', '?'))}</b> "
+                      f"({esc(case.get('analysis_mode', ''))}): {esc(text[:90])}")
+        except requests.exceptions.ConnectionError as exc:
+            # Backend is down: stop instead of failing every remaining row.
+            failed.append((row, text, explain_error(exc)))
+            skipped = len(messages) - i
+            break
+        except requests.exceptions.RequestException as exc:
+            failed.append((row, text, explain_error(exc)))
+            latest = f"Row {row} failed: {esc(text[:90])}"
+
+        elapsed = (datetime.now() - started).total_seconds()
+        remaining = elapsed / i * (total - i)
+        eta = f" · about {remaining:.0f}s left" if i < total and i >= 2 else ""
+        progress.progress(i / total, text=f"Analysed {i} of {total}{eta}")
+        with counts_slot.container():
+            render_kpis([
+                ("Done", f"{i}/{total}", "", ""),
+                ("Critical", sum(r.get("urgency") == "Critical" for r in results), "", "crit"),
+                ("High", sum(r.get("urgency") == "High" for r in results), "", "high"),
+                ("Normal", sum(r.get("urgency") == "Normal" for r in results), "", "norm"),
+                ("Failed", len(failed), "", ""),
+            ])
+        latest_slot.markdown(f"<div style='color:#5a6b7b;font-size:.9rem'>{latest}</div>",
+                             unsafe_allow_html=True)
+
+    progress.progress(1.0, text="Finished")
+    return {"summary": {"total_messages": len(results)}, "results": results, "failed": failed,
+            "skipped": skipped}
+
+
 # ---------------------------------------------------------------------------
 # HTML renderers
 # ---------------------------------------------------------------------------
@@ -523,6 +605,9 @@ render_header(health)
 if st.session_state["flash"]:
     st.success(st.session_state["flash"])
     st.session_state["flash"] = None
+if st.session_state.get("flash_warning"):
+    st.warning(st.session_state["flash_warning"])
+    st.session_state["flash_warning"] = None
 
 cases, cases_error = get_cases()
 if health is None:
@@ -636,25 +721,42 @@ if page == PAGES[2]:
         "Upload a CSV with a `message` column. Each row goes through the same pipeline as a single "
         "message and is saved to the case store."
     )
-    st.caption("Each row is sent to OpenAI individually, so large files can take a few minutes.")
     uploaded = st.file_uploader("CSV file", type=["csv"])
-    if uploaded and st.button("Analyse batch", type="primary"):
-        with st.spinner(f"Analysing {uploaded.name}..."):
-            try:
-                st.session_state["last_batch"] = api(
-                    "POST", "/analyze", timeout=900,
-                    files={"file": (uploaded.name, uploaded.getvalue(), "text/csv")},
-                )
-                st.session_state["flash"] = f"Analysed and saved {st.session_state['last_batch']['summary']['total_messages']} messages."
-                st.rerun()
-            except requests.exceptions.RequestException as exc:
-                st.error(explain_error(exc))
+    messages, read_error = read_batch_messages(uploaded) if uploaded else ([], None)
+    if read_error:
+        st.error(read_error)
+    elif uploaded:
+        st.caption(
+            f"Found **{len(messages)}** message{'s' if len(messages) != 1 else ''} in {esc(uploaded.name)}. "
+            "Each one is analysed separately, so you'll see progress row by row."
+        )
+    if messages and st.button("Analyse batch", type="primary"):
+        st.session_state["last_batch"] = run_batch(messages)
+        last = st.session_state["last_batch"]
+        done, problems = len(last["results"]), len(last["failed"]) + last["skipped"]
+        text = f"Analysed and saved {done} of {len(messages)} messages."
+        if problems:
+            st.session_state["flash_warning"] = text + " Some rows were not analysed; see Last batch below."
+        else:
+            st.session_state["flash"] = text
+        st.rerun()
 
     batch = st.session_state["last_batch"]
     if batch:
         results = batch.get("results", [])
         summary = batch.get("summary", {})
         st.markdown("### Last batch")
+        if batch.get("skipped"):
+            st.warning(
+                f"The backend stopped responding, so the last {batch['skipped']} row(s) were not sent. "
+                "Restart the backend and upload the file again; already-saved rows will be analysed a second time, "
+                "so remove them from the CSV first if you don't want duplicates."
+            )
+        if batch.get("failed"):
+            with st.expander(f"{len(batch['failed'])} message(s) could not be analysed"):
+                for row, text, reason in batch["failed"]:
+                    st.markdown(f"**Row {row}:** {esc(text[:120])}  \n<span style='color:#b3261e'>{esc(reason)}</span>",
+                                unsafe_allow_html=True)
         render_kpis([
             ("Messages", summary.get("total_messages", len(results)), "analysed and saved", ""),
             ("Critical", sum(r.get("urgency") == "Critical" for r in results), "", "crit"),
