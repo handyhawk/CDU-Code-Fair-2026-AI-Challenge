@@ -97,10 +97,11 @@ cd cdu-code-fair-2026-ai-challenge
 
 1. Sign in at <https://platform.openai.com>.
 2. Add a payment method and a few dollars of credit under **Billing**.
-   The API is billed separately from a ChatGPT subscription.
-3. Open <https://platform.openai.com/api-keys> and choose
+   The API is billed separately from a ChatGPT subscription or just use a
+   free API key for testing.
+4. Open <https://platform.openai.com/api-keys> and choose
    **Create new secret key**. Name it (for example `humanfirst-demo`).
-4. **Copy the key now.** It starts with `sk-` and is shown only once.
+5. **Copy the key now.** It starts with `sk-` and is shown only once.
 
 Treat the key like a password:
 
