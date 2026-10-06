@@ -9,285 +9,790 @@ from sklearn.pipeline import Pipeline
 
 from data_loader import ESCALATION_MAP
 
+
 # ---------------------------------------------------------------------
 # Keyword layer
 # ---------------------------------------------------------------------
 
-# Concrete, real-world risk factors — these are allowed to move the
-# urgency score because they describe circumstances, not tone.
+# Concrete risk factors.
+# These describe actual circumstances, not just urgent-sounding language.
 SUBSTANTIVE_RISK_KEYWORDS = [
-    # medical / health dependency
-    "insulin", "medication", "dialysis", "oxygen", "prescription",
-    "refrigerated medicine", "medical condition", "medical appointment",
-    # disability / accessibility
-    "wheelchair", "disability", "disabled", "ramp", "mobility aid",
-    "inaccessible", "accessible exit",
-    # vulnerable people
-    "infant", "baby", "newborn", "children", "child", "elderly",
+    # Medical / health dependency
+    "insulin",
+    "medication",
+    "dialysis",
+    "oxygen",
+    "prescription",
+    "refrigerated medicine",
+    "medical condition",
+    "medical appointment",
+
+    # Disability / accessibility
+    "wheelchair",
+    "disability",
+    "disabled",
+    "ramp",
+    "mobility aid",
+    "inaccessible",
+    "accessible exit",
+
+    # Vulnerable people
+    "infant",
+    "baby",
+    "newborn",
+    "children",
+    "child",
+    "elderly",
     "pregnant",
-    # essential services loss
-    "no power", "no electricity", "disconnected", "no water",
-    "cut off", "no gas", "no heating", "lift has broken", "lift is broken",
-    # homelessness / housing crisis
-    "evicted", "eviction", "nowhere to sleep", "sleeping in my car",
+
+    # Essential services loss
+    "no power",
+    "no electricity",
+    "disconnected",
+    "no water",
+    "cut off",
+    "no gas",
+    "no heating",
+    "lift has broken",
+    "lift is broken",
+
+    # Homelessness / housing crisis
+    "evicted",
+    "eviction",
+    "nowhere to sleep",
+    "sleeping in my car",
     "homeless",
-    # safety / threat
-    "threat", "threatening", "scared", "violence", "unsafe", "danger",
-    "hurt me", "hurt myself",
-    # legal / time-sensitive
-    "legal deadline", "court date", "deadline", "expires",
-    # financial hardship affecting essentials
-    "no food", "no money left", "can't afford", "hardship",
+
+    # Safety / threat
+    "threat",
+    "threatening",
+    "scared",
+    "violence",
+    "unsafe",
+    "danger",
+    "hurt me",
+    "hurt myself",
+
+    # Legal / time-sensitive
+    "legal deadline",
+    "court date",
+    "deadline",
+    "expires",
+
+    # Financial hardship affecting essentials
+    "no food",
+    "no money left",
+    "can't afford",
+    "hardship",
 ]
 
-# Surface-level urgency language — informational only, NEVER scored.
-# This is exactly what fooled a naive system on the "URGENT!!! password"
-# trap case in the training data.
-ATTENTION_MARKER_WORDS = ["urgent", "asap", "emergency", "immediately", "right away"]
+
+# Surface-level urgency language.
+# These are reported but do not directly raise urgency.
+ATTENTION_MARKER_WORDS = [
+    "urgent",
+    "asap",
+    "emergency",
+    "immediately",
+    "right away",
+]
 
 
-def _keyword_signal(message: str) -> tuple[float, List[str], bool]:
+def _keyword_signal(
+    message: str,
+) -> tuple[float, List[str], bool]:
     """
     Returns:
-      - a 0-1 score from SUBSTANTIVE risk keywords only
-      - the list of matched substantive keywords (for explanation)
-      - whether surface-level "attention language" was detected
-        (reported to the human, but not scored)
-    """
-    text = message.lower()
-    matches = [kw for kw in SUBSTANTIVE_RISK_KEYWORDS if kw in text]
-    score = min(1.0, len(matches) / 3.0)
 
-    attention_detected = (
-        any(w in text for w in ATTENTION_MARKER_WORDS)
-        or message.count("!") >= 2
-        or bool(re.search(r"\b[A-Z]{4,}\b", message))  # shouty ALL-CAPS word
+    1. A 0-1 score based on substantive risk keywords.
+    2. The matched risk keywords.
+    3. Whether attention-grabbing language was detected.
+    """
+
+    text = message.lower()
+
+    matches = [
+        keyword
+        for keyword in SUBSTANTIVE_RISK_KEYWORDS
+        if keyword in text
+    ]
+
+    # Three or more substantive risk matches reaches the maximum score.
+    score = min(
+        1.0,
+        len(matches) / 3.0,
     )
 
-    return score, matches, attention_detected
+    attention_detected = (
+        any(
+            word in text
+            for word in ATTENTION_MARKER_WORDS
+        )
+        or message.count("!") >= 2
+        or bool(
+            re.search(
+                r"\b[A-Z]{4,}\b",
+                message,
+            )
+        )
+    )
+
+    return (
+        score,
+        matches,
+        attention_detected,
+    )
 
 
 # ---------------------------------------------------------------------
-# Result container
+# Result object
 # ---------------------------------------------------------------------
 
 @dataclass
 class AnalysisResult:
     message: str
-    urgency: str                       # "Critical" / "High" / "Normal"
-    urgency_confidence: float          # 0.0 - 1.0
+
+    urgency: str
+    urgency_confidence: float
+
     category: str
     category_confidence: float
+
     route: str
-    escalation: str                    # derived from urgency, e.g. "Yes – Immediate"
+
+    escalation: str
     escalate_to_human: bool
-    matched_risk_keywords: List[str] = field(default_factory=list)
+
+    matched_risk_keywords: List[str] = field(
+        default_factory=list
+    )
+
     attention_language_detected: bool = False
+
     explanation: str = ""
 
     def to_dict(self) -> dict:
         return {
             "message": self.message,
+
             "urgency": self.urgency,
-            "urgency_confidence": round(self.urgency_confidence, 3),
+            "urgency_confidence": round(
+                self.urgency_confidence,
+                3,
+            ),
+
             "category": self.category,
-            "category_confidence": round(self.category_confidence, 3),
+            "category_confidence": round(
+                self.category_confidence,
+                3,
+            ),
+
             "route": self.route,
+
             "escalation": self.escalation,
-            "escalate_to_human": self.escalate_to_human,
-            "matched_risk_keywords": self.matched_risk_keywords,
-            "attention_language_detected": self.attention_language_detected,
-            "explanation": self.explanation,
+
+            "escalate_to_human":
+                self.escalate_to_human,
+
+            "matched_risk_keywords":
+                self.matched_risk_keywords,
+
+            "attention_language_detected":
+                self.attention_language_detected,
+
+            "explanation":
+                self.explanation,
         }
 
 
-# Below this confidence, flag for human review even if a class was predicted.
-#
-# NOTE ON THIS NUMBER: with only 30 training examples and 3 balanced
-# classes, this classifier's confidence scores sit mostly in the
-# 0.41-0.63 range even on cases it gets right (see evaluate.py output)
-# — there just isn't enough data yet to produce sharply separated
-# probabilities. 0.45 was chosen by inspecting that distribution: it
-# catches the genuinely near-chance-level calls without escalating
-# every single message (which a stricter threshold like 0.55 would do
-# and would defeat the point of confidence-based triage). Re-run
-# evaluate.py and re-tune this whenever the training set grows.
+# ---------------------------------------------------------------------
+# Confidence threshold
+# ---------------------------------------------------------------------
+
+# With only a small training dataset, the local ML probabilities are
+# relatively weak. Below this threshold, force human review.
 ESCALATION_CONFIDENCE_THRESHOLD = 0.45
 
 
+# ---------------------------------------------------------------------
+# ML pipeline
+# ---------------------------------------------------------------------
+
 def _make_pipeline() -> Pipeline:
     """
-    Small, fast text classifier. With ~30 labeled examples this will
-    not generalise perfectly — that's expected at this stage. It should
-    be retrained as soon as more labeled cases are available (see
-    /train endpoint and evaluate.py for an honest accuracy estimate).
-    """
-    return Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=1, stop_words="english")),
-        ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
-    ])
+    Small traditional text-classification pipeline.
 
+    TF-IDF:
+    Converts message text into numeric features.
+
+    LogisticRegression:
+    Learns which text patterns are associated with each label.
+    """
+
+    return Pipeline(
+        [
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    ngram_range=(1, 2),
+                    min_df=1,
+                    stop_words="english",
+                ),
+            ),
+            (
+                "clf",
+                LogisticRegression(
+                    max_iter=1000,
+                    class_weight="balanced",
+                ),
+            ),
+        ]
+    )
+
+
+# ---------------------------------------------------------------------
+# Local fallback analyzer
+# ---------------------------------------------------------------------
 
 class UrgencyAnalyzer:
     """
-    Trains and serves three classifiers (urgency, category, route) off
-    the same labeled CSV, plus the guarded keyword layer above.
+    Local machine-learning fallback classifier.
+
+    It trains separate models for:
+    - urgency
+    - category
+    - route
+
+    This model is not the primary AI anymore.
+
+    In the hybrid architecture:
+        OpenAI = primary classifier
+        Local ML = fallback classifier
     """
 
     def __init__(self):
-        self.urgency_pipeline: Optional[Pipeline] = None
-        self.category_pipeline: Optional[Pipeline] = None
-        self.route_pipeline: Optional[Pipeline] = None
+        self.urgency_pipeline: Optional[
+            Pipeline
+        ] = None
+
+        self.category_pipeline: Optional[
+            Pipeline
+        ] = None
+
+        self.route_pipeline: Optional[
+            Pipeline
+        ] = None
+
         self.is_trained = False
 
-    # ---- Training -----------------------------------------------------
 
-    def train(self, df: pd.DataFrame) -> dict:
+    # -----------------------------------------------------------------
+    # Training
+    # -----------------------------------------------------------------
+
+    def train(
+        self,
+        df: pd.DataFrame,
+    ) -> dict:
         """
-        `df` must have 'message', 'urgency', 'category', 'route' columns
-        (see data_loader.load_training_data). Category/route classifiers
-        are only trained if that column has >=2 distinct values in the
-        data; otherwise those predictions fall back to "Unclassified".
+        Train the local ML models.
+
+        Expected columns:
+        - message
+        - urgency
+        - category
+        - route
         """
-        info = {"n_examples": len(df)}
+
+        info = {
+            "n_examples": len(df)
+        }
+
+        # -----------------------------
+        # Urgency model
+        # -----------------------------
 
         if df["urgency"].nunique() < 2:
             self.urgency_pipeline = None
-            info["urgency_trained"] = False
-            info["urgency_reason"] = "Only one urgency class present in training data."
-        else:
-            self.urgency_pipeline = _make_pipeline()
-            self.urgency_pipeline.fit(df["message"], df["urgency"])
-            info["urgency_trained"] = True
-            info["urgency_classes"] = sorted(df["urgency"].unique().tolist())
 
-        if df["category"].nunique() >= 2:
-            self.category_pipeline = _make_pipeline()
-            self.category_pipeline.fit(df["message"], df["category"])
-            info["category_trained"] = True
-            info["category_classes"] = sorted(df["category"].unique().tolist())
+            info[
+                "urgency_trained"
+            ] = False
+
+            info[
+                "urgency_reason"
+            ] = (
+                "Only one urgency class "
+                "present in training data."
+            )
+
+        else:
+            self.urgency_pipeline = (
+                _make_pipeline()
+            )
+
+            self.urgency_pipeline.fit(
+                df["message"],
+                df["urgency"],
+            )
+
+            info[
+                "urgency_trained"
+            ] = True
+
+            info[
+                "urgency_classes"
+            ] = sorted(
+                df[
+                    "urgency"
+                ].unique().tolist()
+            )
+
+
+        # -----------------------------
+        # Category model
+        # -----------------------------
+
+        if (
+            df["category"].nunique()
+            >= 2
+        ):
+            self.category_pipeline = (
+                _make_pipeline()
+            )
+
+            self.category_pipeline.fit(
+                df["message"],
+                df["category"],
+            )
+
+            info[
+                "category_trained"
+            ] = True
+
+            info[
+                "category_classes"
+            ] = sorted(
+                df[
+                    "category"
+                ].unique().tolist()
+            )
+
         else:
             self.category_pipeline = None
-            info["category_trained"] = False
 
-        if df["route"].nunique() >= 2:
-            self.route_pipeline = _make_pipeline()
-            self.route_pipeline.fit(df["message"], df["route"])
-            info["route_trained"] = True
+            info[
+                "category_trained"
+            ] = False
+
+
+        # -----------------------------
+        # Route model
+        # -----------------------------
+
+        if (
+            df["route"].nunique()
+            >= 2
+        ):
+            self.route_pipeline = (
+                _make_pipeline()
+            )
+
+            self.route_pipeline.fit(
+                df["message"],
+                df["route"],
+            )
+
+            info[
+                "route_trained"
+            ] = True
+
         else:
             self.route_pipeline = None
-            info["route_trained"] = False
 
-        self.is_trained = self.urgency_pipeline is not None
+            info[
+                "route_trained"
+            ] = False
+
+
+        self.is_trained = (
+            self.urgency_pipeline
+            is not None
+        )
+
         return info
 
-    # ---- Inference ------------------------------------------------
+
+    # -----------------------------------------------------------------
+    # Prediction helper
+    # -----------------------------------------------------------------
 
     @staticmethod
-    def _predict_with_confidence(pipeline: Optional[Pipeline], message: str, fallback: str):
+    def _predict_with_confidence(
+        pipeline: Optional[Pipeline],
+        message: str,
+        fallback: str,
+    ):
+        """
+        Run a classifier and return:
+
+        predicted label,
+        probability of that predicted label.
+        """
+
         if pipeline is None:
-            return fallback, 0.0
-        proba = pipeline.predict_proba([message])[0]
-        classes = pipeline.classes_
-        best_idx = proba.argmax()
-        return classes[best_idx], float(proba[best_idx])
-
-    def analyze(self, message: str) -> AnalysisResult:
-        kw_score, kw_matches, attention_detected = _keyword_signal(message)
-
-        if self.urgency_pipeline is not None:
-            ml_label, ml_conf = self._predict_with_confidence(
-                self.urgency_pipeline, message, fallback="Normal"
+            return (
+                fallback,
+                0.0,
             )
-            # Blend the ML confidence for the predicted class with the
-            # keyword score, but ONLY as a small nudge — ML does the
-            # heavy lifting since it can read context, unlike keywords.
-            urgency_confidence = min(1.0, 0.8 * ml_conf + 0.2 * kw_score)
+
+        probabilities = (
+            pipeline.predict_proba(
+                [message]
+            )[0]
+        )
+
+        classes = pipeline.classes_
+
+        best_index = (
+            probabilities.argmax()
+        )
+
+        return (
+            classes[best_index],
+            float(
+                probabilities[
+                    best_index
+                ]
+            ),
+        )
+
+
+    # -----------------------------------------------------------------
+    # Analyze one message
+    # -----------------------------------------------------------------
+
+    def analyze(
+        self,
+        message: str,
+    ) -> AnalysisResult:
+
+        (
+            keyword_score,
+            keyword_matches,
+            attention_detected,
+        ) = _keyword_signal(
+            message
+        )
+
+
+        # -------------------------------------------------------------
+        # Urgency
+        # -------------------------------------------------------------
+
+        if (
+            self.urgency_pipeline
+            is not None
+        ):
+
+            (
+                ml_label,
+                ml_confidence,
+            ) = (
+                self._predict_with_confidence(
+                    self.urgency_pipeline,
+                    message,
+                    fallback="Normal",
+                )
+            )
+
+            # Local ML does most of the work.
+            # Keyword risk provides a small additional signal.
+            urgency_confidence = min(
+                1.0,
+                0.8 * ml_confidence
+                + 0.2 * keyword_score,
+            )
+
             urgency = ml_label
+
         else:
-            # No trained model yet — fall back to keyword score only,
-            # mapped onto the three tiers.
-            urgency_confidence = kw_score
-            if kw_score >= 0.66:
+            # If the local ML model is unavailable,
+            # use the keyword layer only.
+            urgency_confidence = (
+                keyword_score
+            )
+
+            if keyword_score >= 0.66:
                 urgency = "Critical"
-            elif kw_score >= 0.33:
+
+            elif keyword_score >= 0.33:
                 urgency = "High"
+
             else:
                 urgency = "Normal"
 
-        category, category_confidence = self._predict_with_confidence(
-            self.category_pipeline, message, fallback="Unclassified"
-        )
-        route, _ = self._predict_with_confidence(
-            self.route_pipeline, message, fallback=category
+
+        # -------------------------------------------------------------
+        # Category
+        # -------------------------------------------------------------
+
+        (
+            category,
+            category_confidence,
+        ) = (
+            self._predict_with_confidence(
+                self.category_pipeline,
+                message,
+                fallback="Unclassified",
+            )
         )
 
-        escalation = ESCALATION_MAP.get(urgency, "No")
 
-        # Escalate to a human whenever: it's Critical (high stakes,
-        # always worth a human glance), OR the model isn't confident.
+        # -------------------------------------------------------------
+        # Route
+        # -------------------------------------------------------------
+
+        (
+            route,
+            _,
+        ) = (
+            self._predict_with_confidence(
+                self.route_pipeline,
+                message,
+                fallback=category,
+            )
+        )
+
+
+        # -------------------------------------------------------------
+        # Escalation
+        # -------------------------------------------------------------
+
+        escalation = (
+            ESCALATION_MAP.get(
+                urgency,
+                "No",
+            )
+        )
+
+
+        # HumanFirst rule:
+        #
+        # Critical -> immediate human review
+        # High     -> priority human review
+        # Normal   -> no mandatory review unless confidence is low
+        #
+        # The hybrid backend will ALSO force human review whenever this
+        # local model is being used as a fallback after OpenAI failure.
         escalate_to_human = (
-            urgency == "Critical" or urgency_confidence < ESCALATION_CONFIDENCE_THRESHOLD
+            urgency in {
+                "Critical",
+                "High",
+            }
+            or urgency_confidence
+            < ESCALATION_CONFIDENCE_THRESHOLD
         )
+
+
+        # -------------------------------------------------------------
+        # Explanation
+        # -------------------------------------------------------------
 
         explanation_parts = []
-        if kw_matches:
-            explanation_parts.append(f"Risk factors identified: {', '.join(kw_matches)}.")
+
+
+        if keyword_matches:
+            explanation_parts.append(
+                "Risk factors identified: "
+                + ", ".join(
+                    keyword_matches
+                )
+                + "."
+            )
+
+
         if attention_detected:
             explanation_parts.append(
-                "Uses urgent-sounding language, but this alone does not "
-                "raise the urgency score — verify against risk factors above."
+                "Uses urgent-sounding "
+                "language, but this alone "
+                "does not raise the urgency "
+                "score."
             )
-        if self.urgency_pipeline is not None:
+
+
+        if (
+            self.urgency_pipeline
+            is not None
+        ):
             explanation_parts.append(
-                f"Model classified as '{urgency}' with {urgency_confidence:.0%} confidence."
+                f"Local model classified "
+                f"as '{urgency}' with "
+                f"{urgency_confidence:.0%} "
+                f"confidence."
             )
+
         else:
             explanation_parts.append(
-                "Classifier not yet trained — using keyword-only estimate."
+                "Local classifier is not "
+                "trained, so a keyword-only "
+                "estimate was used."
             )
+
+
         if escalate_to_human:
-            explanation_parts.append("Flagged for human review before action.")
+            explanation_parts.append(
+                "Flagged for human review."
+            )
+
+
+        # -------------------------------------------------------------
+        # Return result
+        # -------------------------------------------------------------
 
         return AnalysisResult(
             message=message,
+
             urgency=urgency,
-            urgency_confidence=urgency_confidence,
+
+            urgency_confidence=(
+                urgency_confidence
+            ),
+
             category=category,
-            category_confidence=category_confidence,
+
+            category_confidence=(
+                category_confidence
+            ),
+
             route=route,
+
             escalation=escalation,
-            escalate_to_human=escalate_to_human,
-            matched_risk_keywords=kw_matches,
-            attention_language_detected=attention_detected,
-            explanation=" ".join(explanation_parts),
+
+            escalate_to_human=(
+                escalate_to_human
+            ),
+
+            matched_risk_keywords=(
+                keyword_matches
+            ),
+
+            attention_language_detected=(
+                attention_detected
+            ),
+
+            explanation=" ".join(
+                explanation_parts
+            ),
         )
 
-    def analyze_batch(self, messages: pd.Series) -> List[AnalysisResult]:
-        return [self.analyze(m) for m in messages]
+
+    # -----------------------------------------------------------------
+    # Analyze multiple messages
+    # -----------------------------------------------------------------
+
+    def analyze_batch(
+        self,
+        messages: pd.Series,
+    ) -> List[AnalysisResult]:
+
+        return [
+            self.analyze(message)
+            for message
+            in messages
+        ]
+
+
+    # -----------------------------------------------------------------
+    # Summary
+    # -----------------------------------------------------------------
 
     @staticmethod
-    def summarize(results: List[AnalysisResult]) -> dict:
-        """Summary stats for the Streamlit dashboard."""
+    def summarize(
+        results: List[
+            AnalysisResult
+        ],
+    ) -> dict:
+
         n = len(results)
+
         if n == 0:
             return {
                 "total_messages": 0,
-                "by_urgency": {}, "by_category": {},
-                "escalated_count": 0, "escalation_rate": 0.0,
-                "average_urgency_confidence": 0.0,
+                "by_urgency": {},
+                "by_category": {},
+                "escalated_count": 0,
+                "escalation_rate": 0.0,
+                "average_urgency_confidence":
+                    0.0,
             }
 
-        by_urgency = pd.Series([r.urgency for r in results]).value_counts().to_dict()
-        by_category = pd.Series([r.category for r in results]).value_counts().to_dict()
-        escalated_count = sum(1 for r in results if r.escalate_to_human)
-        avg_conf = sum(r.urgency_confidence for r in results) / n
+
+        by_urgency = (
+            pd.Series(
+                [
+                    result.urgency
+                    for result
+                    in results
+                ]
+            )
+            .value_counts()
+            .to_dict()
+        )
+
+
+        by_category = (
+            pd.Series(
+                [
+                    result.category
+                    for result
+                    in results
+                ]
+            )
+            .value_counts()
+            .to_dict()
+        )
+
+
+        escalated_count = sum(
+            1
+            for result
+            in results
+            if result.escalate_to_human
+        )
+
+
+        average_confidence = (
+            sum(
+                result.urgency_confidence
+                for result
+                in results
+            )
+            / n
+        )
+
 
         return {
             "total_messages": n,
-            "by_urgency": by_urgency,
-            "by_category": by_category,
-            "escalated_count": escalated_count,
-            "escalation_rate": round(escalated_count / n, 3),
-            "average_urgency_confidence": round(avg_conf, 3),
+
+            "by_urgency":
+                by_urgency,
+
+            "by_category":
+                by_category,
+
+            "escalated_count":
+                escalated_count,
+
+            "escalation_rate":
+                round(
+                    escalated_count / n,
+                    3,
+                ),
+
+            "average_urgency_confidence":
+                round(
+                    average_confidence,
+                    3,
+                ),
         }
