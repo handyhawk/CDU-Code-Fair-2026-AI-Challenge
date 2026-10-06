@@ -30,7 +30,7 @@ DEFAULT_BACKEND_URL = "http://localhost:5000"
 URGENCY_ORDER = ["Critical", "High", "Normal"]
 URGENCY_RANK = {name: i for i, name in enumerate(URGENCY_ORDER)}
 URGENCY_CLASS = {"Critical": "crit", "High": "high", "Normal": "norm"}
-URGENCY_COLOR = {"Critical": "#b3261e", "High": "#c77700", "Normal": "#3f7d5a"}
+URGENCY_COLOR = {"Critical": "var(--hf-crit)", "High": "var(--hf-high)", "Normal": "var(--hf-norm)"}
 
 CATEGORIES = [
     "Health & Safety",
@@ -77,24 +77,49 @@ ACK_TEMPLATES = {
 # Styling
 # ---------------------------------------------------------------------------
 
+# Colour tokens. Every colour in CSS below comes from these, so switching the
+# theme is just swapping one set of variables (plus a few native-widget fixes).
+LIGHT_VARS = """
+  --hf-navy:#12304f; --hf-navy-2:#1d466f; --hf-accent:#12304f; --hf-on-accent:#ffffff;
+  --hf-ink:#1b2733; --hf-ink-2:#33414f; --hf-muted:#5b6b7b;
+  --hf-line:#d5dce3; --hf-line-2:#e5eaef; --hf-bg:#f4f6f8; --hf-card:#ffffff; --hf-sunken:#f7f9fb;
+  --hf-head:#eaeff4; --hf-hover:#f8fafc; --hf-track:#eceff2; --hf-heading:#12304f;
+  --hf-banner:#12304f; --hf-banner-edge:#7fa3c7;
+  --hf-crit:#b3261e; --hf-crit-bg:#fbeceb; --hf-crit-ink:#8c1d18; --hf-crit-line:#e3a59e;
+  --hf-high:#c77700; --hf-high-bg:#fdf1dc; --hf-high-ink:#7a4b00; --hf-high-line:#ecc88a;
+  --hf-norm:#3f7d5a; --hf-norm-bg:#e7f1ea; --hf-norm-ink:#1f5a35; --hf-norm-line:#a9cdb6;
+  --hf-info-bg:#eef4fa; --hf-info-line:#c3d4e5; --hf-info-ink:#26415d;
+  --hf-chip-bg:#eef1f4; --hf-chip-ink:#3d4b59; --hf-chip-line:#cfd6dc;
+  --hf-openai-bg:#e4edf6; --hf-openai-ink:#12304f; --hf-openai-line:#b7cbe0;
+  --hf-disabled:#b8c3cf;
+"""
+
+DARK_VARS = """
+  --hf-navy:#9cc3ea; --hf-navy-2:#5b8fc4; --hf-accent:#3d74ad; --hf-on-accent:#ffffff;
+  --hf-ink:#e3e9ef; --hf-ink-2:#c9d3dc; --hf-muted:#93a3b3;
+  --hf-line:#2d3b4a; --hf-line-2:#283544; --hf-bg:#0f1720; --hf-card:#16212d; --hf-sunken:#111b25;
+  --hf-head:#1c2a38; --hf-hover:#1a2633; --hf-track:#243241; --hf-heading:#d6e4f2;
+  --hf-banner:#0b2440; --hf-banner-edge:#3d74ad;
+  --hf-crit:#ef6b62; --hf-crit-bg:#3a1a1a; --hf-crit-ink:#ffb4ac; --hf-crit-line:#7a2e29;
+  --hf-high:#f0a43a; --hf-high-bg:#3a2a12; --hf-high-ink:#ffd08a; --hf-high-line:#7a5418;
+  --hf-norm:#5fbf86; --hf-norm-bg:#15301f; --hf-norm-ink:#a6e3bd; --hf-norm-line:#2e6a45;
+  --hf-info-bg:#15263a; --hf-info-line:#2c4a6b; --hf-info-ink:#b9d3ee;
+  --hf-chip-bg:#1e2b39; --hf-chip-ink:#c4cfda; --hf-chip-line:#34465a;
+  --hf-openai-bg:#16304d; --hf-openai-ink:#b9d6f5; --hf-openai-line:#2f5680;
+  --hf-disabled:#3a4756;
+"""
+
 CSS = """
 <style>
-:root{
-  --hf-navy:#12304f; --hf-navy-2:#1d466f; --hf-ink:#1b2733; --hf-muted:#5b6b7b;
-  --hf-line:#d5dce3; --hf-bg:#f4f6f8; --hf-card:#ffffff;
-  --hf-crit:#b3261e; --hf-crit-bg:#fbeceb; --hf-crit-ink:#8c1d18;
-  --hf-high:#c77700; --hf-high-bg:#fdf1dc; --hf-high-ink:#7a4b00;
-  --hf-norm:#3f7d5a; --hf-norm-bg:#e7f1ea; --hf-norm-ink:#1f5a35;
-}
 #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"]{display:none !important;}
 .block-container{max-width:1240px; padding-top:3rem; padding-bottom:3rem;}
-h1,h2,h3{color:var(--hf-navy); letter-spacing:-0.01em;}
+h1,h2,h3{color:var(--hf-heading) !important; letter-spacing:-0.01em;}
 h3{font-size:1.05rem !important; margin-top:.4rem;}
 
 /* header */
-.hf-header{background:var(--hf-navy); color:#fff; border-radius:6px; padding:18px 24px;
+.hf-header{background:var(--hf-banner); color:#fff; border-radius:6px; padding:18px 24px;
   display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
-  border-bottom:4px solid #7fa3c7; margin-bottom:14px;}
+  border-bottom:4px solid var(--hf-banner-edge); margin-bottom:14px;}
 .hf-title{font-size:1.5rem; font-weight:700; line-height:1.2;}
 .hf-sub{font-size:.9rem; opacity:.85; margin-top:2px;}
 .hf-status{display:flex; gap:8px; flex-wrap:wrap;}
@@ -106,19 +131,17 @@ h3{font-size:1.05rem !important; margin-top:.4rem;}
 /* badges and chips */
 .hf-badge{display:inline-block; font-weight:700; font-size:.78rem; padding:3px 10px; border-radius:4px;
   border:1px solid; letter-spacing:.02em; white-space:nowrap;}
-.hf-badge.crit{background:var(--hf-crit-bg); color:var(--hf-crit-ink); border-color:#e3a59e;}
-.hf-badge.high{background:var(--hf-high-bg); color:var(--hf-high-ink); border-color:#ecc88a;}
-.hf-badge.norm{background:var(--hf-norm-bg); color:var(--hf-norm-ink); border-color:#a9cdb6;}
+.hf-badge.crit{background:var(--hf-crit-bg); color:var(--hf-crit-ink); border-color:var(--hf-crit-line);}
+.hf-badge.high{background:var(--hf-high-bg); color:var(--hf-high-ink); border-color:var(--hf-high-line);}
+.hf-badge.norm{background:var(--hf-norm-bg); color:var(--hf-norm-ink); border-color:var(--hf-norm-line);}
 .hf-badge.lg{font-size:.95rem; padding:5px 14px;}
-.hf-chip{display:inline-block; font-size:.74rem; padding:2px 9px; border-radius:999px; border:1px solid var(--hf-line);
-  color:#3d4b59; background:#eef1f4; white-space:nowrap; margin-right:4px;}
-.hf-chip.openai{background:#e4edf6; color:var(--hf-navy); border-color:#b7cbe0;}
-.hf-chip.local{background:#eceff1; color:#44525f; border-color:#cfd6dc;}
-.hf-chip.prov{background:#fff7e6; color:#7a4b00; border-color:#e8c37a; font-weight:600;}
-.hf-chip.need{background:#fff7e6; color:#7a4b00; border-color:#e8c37a; font-weight:600;}
-.hf-chip.done{background:var(--hf-norm-bg); color:var(--hf-norm-ink); border-color:#a9cdb6; font-weight:600;}
-.hf-chip.none{background:#f4f6f8; color:#66747f;}
-.hf-chip.risk{background:#fff; color:#3d4b59; border-color:#b9c3cc;}
+.hf-chip{display:inline-block; font-size:.74rem; padding:2px 9px; border-radius:999px; border:1px solid var(--hf-chip-line);
+  color:var(--hf-chip-ink); background:var(--hf-chip-bg); white-space:nowrap; margin-right:4px;}
+.hf-chip.openai{background:var(--hf-openai-bg); color:var(--hf-openai-ink); border-color:var(--hf-openai-line);}
+.hf-chip.prov, .hf-chip.need{background:var(--hf-high-bg); color:var(--hf-high-ink); border-color:var(--hf-high-line); font-weight:600;}
+.hf-chip.done{background:var(--hf-norm-bg); color:var(--hf-norm-ink); border-color:var(--hf-norm-line); font-weight:600;}
+.hf-chip.none{background:var(--hf-sunken); color:var(--hf-muted);}
+.hf-chip.risk{background:var(--hf-card); color:var(--hf-chip-ink);}
 
 /* case card */
 .hf-case{background:var(--hf-card); border:1px solid var(--hf-line); border-left:6px solid var(--hf-line);
@@ -127,62 +150,149 @@ h3{font-size:1.05rem !important; margin-top:.4rem;}
 .hf-case.norm{border-left-color:var(--hf-norm);}
 .hf-eyebrow{font-size:.78rem; color:var(--hf-muted); margin-bottom:8px;}
 .hf-badges{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
-.hf-quote{background:#f7f9fb; border:1px solid #e5eaef; border-radius:4px; padding:10px 12px;
+.hf-quote{background:var(--hf-sunken); border:1px solid var(--hf-line-2); border-radius:4px; padding:10px 12px;
   font-size:.92rem; color:var(--hf-ink); margin-bottom:12px; line-height:1.45;}
 .hf-facts{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:12px;}
 @media (max-width:900px){.hf-facts{grid-template-columns:repeat(2,minmax(0,1fr));}}
-.hf-fact{border:1px solid #e5eaef; border-radius:4px; padding:8px 10px; background:#fff;}
+.hf-fact{border:1px solid var(--hf-line-2); border-radius:4px; padding:8px 10px; background:var(--hf-card);}
 .hf-fact .k{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--hf-muted);}
 .hf-fact .v{font-size:.92rem; font-weight:600; color:var(--hf-ink); margin-top:2px;}
 .hf-label{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--hf-muted); margin:14px 0 4px;}
 .hf-text{font-size:.92rem; color:var(--hf-ink); line-height:1.45;}
 .hf-note{border-radius:4px; padding:9px 12px; font-size:.86rem; margin-top:10px; border:1px solid;}
-.hf-note.warn{background:#fff7e6; border-color:#e8c37a; color:#6b4300;}
-.hf-note.info{background:#eef4fa; border-color:#c3d4e5; color:#26415d;}
-.hf-note.ok{background:var(--hf-norm-bg); border-color:#a9cdb6; color:var(--hf-norm-ink);}
+.hf-note.warn{background:var(--hf-high-bg); border-color:var(--hf-high-line); color:var(--hf-high-ink);}
+.hf-note.info{background:var(--hf-info-bg); border-color:var(--hf-info-line); color:var(--hf-info-ink);}
+.hf-note.ok{background:var(--hf-norm-bg); border-color:var(--hf-norm-line); color:var(--hf-norm-ink);}
 
 /* tables */
-.hf-table-wrap{border:1px solid var(--hf-line); border-radius:6px; background:#fff; max-height:470px; overflow:auto;}
+.hf-table-wrap{border:1px solid var(--hf-line); border-radius:6px; background:var(--hf-card); max-height:470px; overflow:auto;}
 table.hf-table{border-collapse:collapse; width:100%; font-size:.84rem;}
-table.hf-table th{position:sticky; top:0; background:#eaeff4; color:#2d3c4b; text-align:left; font-weight:700;
+table.hf-table th{position:sticky; top:0; background:var(--hf-head); color:var(--hf-ink-2); text-align:left; font-weight:700;
   padding:9px 10px; border-bottom:1px solid var(--hf-line); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em;}
-table.hf-table td{padding:9px 10px; border-bottom:1px solid #edf0f3; vertical-align:middle; color:var(--hf-ink);}
-table.hf-table tr:hover td{background:#f8fafc;}
-td.hf-msg{min-width:260px; color:#33414f;}
+table.hf-table td{padding:9px 10px; border-bottom:1px solid var(--hf-line-2); vertical-align:middle; color:var(--hf-ink);}
+table.hf-table tr:hover td{background:var(--hf-hover);}
+td.hf-msg{min-width:260px; color:var(--hf-ink-2) !important;}
 table.hf-table td:nth-child(1), table.hf-table td:nth-child(2){white-space:nowrap;}
 
 /* KPI + bars */
 .hf-kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:6px 0 16px;}
-.hf-kpi{background:#fff; border:1px solid var(--hf-line); border-top:4px solid var(--hf-navy-2); border-radius:6px; padding:12px 14px;}
+.hf-kpi{background:var(--hf-card); border:1px solid var(--hf-line); border-top:4px solid var(--hf-navy-2); border-radius:6px; padding:12px 14px;}
 .hf-kpi.crit{border-top-color:var(--hf-crit);} .hf-kpi.high{border-top-color:var(--hf-high);}
 .hf-kpi.norm{border-top-color:var(--hf-norm);}
 .hf-kpi .k{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--hf-muted);}
-.hf-kpi .v{font-size:1.9rem; font-weight:700; color:var(--hf-navy); line-height:1.15;}
+.hf-kpi .v{font-size:1.9rem; font-weight:700; color:var(--hf-heading); line-height:1.15;}
 .hf-kpi .s{font-size:.78rem; color:var(--hf-muted);}
-.hf-panel{background:#fff; border:1px solid var(--hf-line); border-radius:6px; padding:14px 16px; margin-bottom:12px;}
-.hf-panel h4{margin:0 0 10px; font-size:.95rem; color:var(--hf-navy);}
-.hf-bar-row{display:grid; grid-template-columns:150px 1fr 40px; gap:10px; align-items:center; margin:7px 0; font-size:.85rem;}
-.hf-bar-track{background:#eceff2; border-radius:3px; height:12px; overflow:hidden;}
+.hf-panel{background:var(--hf-card); border:1px solid var(--hf-line); border-radius:6px; padding:14px 16px; margin-bottom:12px;}
+.hf-panel h4{margin:0 0 10px; font-size:.95rem; color:var(--hf-heading);}
+.hf-bar-row{display:grid; grid-template-columns:150px 1fr 40px; gap:10px; align-items:center; margin:7px 0; font-size:.85rem; color:var(--hf-ink);}
+.hf-bar-track{background:var(--hf-track); border-radius:3px; height:12px; overflow:hidden;}
 .hf-bar-fill{height:100%; border-radius:3px;}
 .hf-bar-n{text-align:right; font-weight:600; color:var(--hf-ink);}
-.hf-empty{border:1px dashed #b9c3cc; border-radius:6px; padding:28px; text-align:center; color:var(--hf-muted); background:#fff;}
+.hf-empty{border:1px dashed var(--hf-chip-line); border-radius:6px; padding:28px; text-align:center; color:var(--hf-muted); background:var(--hf-card);}
 .hf-footer{margin-top:28px; padding-top:12px; border-top:1px solid var(--hf-line); font-size:.78rem; color:var(--hf-muted);}
 
 /* native widgets */
-button[kind="primary"]{background:var(--hf-navy) !important; border-color:var(--hf-navy) !important;}
-button[kind="primary"], button[kind="primary"] *{color:#ffffff !important;}
+button[kind="primary"]{background:var(--hf-accent) !important; border-color:var(--hf-accent) !important;}
+button[kind="primary"], button[kind="primary"] *{color:var(--hf-on-accent) !important;}
 button[kind="primary"]:hover{background:var(--hf-navy-2) !important;}
-button[kind="primary"]:disabled{background:#b8c3cf !important; border-color:#b8c3cf !important; opacity:1;}
+button[kind="primary"]:disabled{background:var(--hf-disabled) !important; border-color:var(--hf-disabled) !important; opacity:1;}
 div[role="radiogroup"]{gap:8px; padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--hf-line);}
-[data-testid="stRadioOption"], label[data-baseweb="radio"]{background:#fff; border:1px solid var(--hf-line);
+[data-testid="stRadioOption"], label[data-baseweb="radio"]{background:var(--hf-card); border:1px solid var(--hf-line);
   border-radius:4px; padding:6px 16px; margin:0; cursor:pointer;}
 [data-testid="stRadioOption"] > div > div:first-child, label[data-baseweb="radio"] > div:first-child{display:none;}
-[data-testid="stRadioOption"] p, label[data-baseweb="radio"] p{font-weight:600; color:var(--hf-navy); margin:0;}
+[data-testid="stRadioOption"] p, label[data-baseweb="radio"] p{font-weight:600; color:var(--hf-heading); margin:0;}
 [data-testid="stRadioOption"][data-selected="true"], label[data-baseweb="radio"]:has(input:checked){
-  background:var(--hf-navy); border-color:var(--hf-navy);}
-[data-testid="stRadioOption"][data-selected="true"] p, label[data-baseweb="radio"]:has(input:checked) p{color:#fff;}
+  background:var(--hf-accent); border-color:var(--hf-accent);}
+[data-testid="stRadioOption"][data-selected="true"] p, label[data-baseweb="radio"]:has(input:checked) p{color:var(--hf-on-accent);}
+.hf-toggle-row{display:flex; justify-content:flex-end;}
 </style>
 """
+
+# Extra rules for dark mode only: Streamlit's own widgets are themed by
+# .streamlit/config.toml (light), so they need to be recoloured here.
+DARK_WIDGET_CSS = """
+<style>
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stMain"]{background:var(--hf-bg) !important;}
+[data-testid="stSidebar"], [data-testid="stSidebar"] > div{background:var(--hf-card) !important;}
+.stApp, .stApp p, .stApp li, .stApp label, .stApp span, [data-testid="stMarkdownContainer"],
+[data-testid="stWidgetLabel"] *{color:var(--hf-ink);}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] *{color:var(--hf-muted) !important;}
+.stApp code{background:var(--hf-head) !important; color:var(--hf-openai-ink) !important;}
+.stApp a{color:var(--hf-navy) !important;}
+
+/* text inputs, text areas, select boxes */
+[data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="textarea"], [data-baseweb="select"] > div{
+  background:var(--hf-sunken) !important; border-color:var(--hf-line) !important;}
+.stApp input, .stApp textarea{background:var(--hf-sunken) !important; color:var(--hf-ink) !important;
+  -webkit-text-fill-color:var(--hf-ink) !important; caret-color:var(--hf-ink);}
+.stApp input::placeholder, .stApp textarea::placeholder{color:var(--hf-muted) !important; -webkit-text-fill-color:var(--hf-muted) !important;}
+[data-baseweb="select"] *{color:var(--hf-ink) !important;}
+[data-baseweb="select"] svg{fill:var(--hf-muted) !important;}
+[data-baseweb="popover"] ul, [data-baseweb="popover"] [role="listbox"], [data-baseweb="menu"]{background:var(--hf-card) !important;}
+[data-baseweb="popover"] li{background:var(--hf-card) !important; color:var(--hf-ink) !important;}
+[data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"]{background:var(--hf-head) !important;}
+/* Streamlit 1.64 widget markup */
+body{background:var(--hf-bg) !important; color:var(--hf-ink);}
+[data-testid="stTextAreaRootElement"], [data-testid="stTextInputRootElement"], [data-testid="stNumberInputContainer"],
+[data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"]{
+  background:var(--hf-sunken) !important; border-color:var(--hf-line) !important;}
+[data-testid="stTextAreaRootElement"]:focus-within, [data-testid="stTextInputRootElement"]:focus-within,
+[data-testid="stSelectbox"] [role="group"]:focus-within, [data-testid="stMultiSelect"] [role="group"]:focus-within{
+  border-color:var(--hf-navy-2) !important;}
+[data-testid="stSelectbox"] [role="group"] *{color:var(--hf-ink) !important;}
+[data-testid="stMultiSelect"] [role="group"] input{background:transparent !important;}
+[data-testid="stSelectbox"] [role="group"] svg, [data-testid="stMultiSelect"] [role="group"] > div:last-child svg{
+  color:var(--hf-muted) !important;}
+[data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]{background:var(--hf-card) !important;
+  border:1px solid var(--hf-line) !important;}
+[data-testid="stSelectboxVirtualDropdown"] *, [data-testid="stMultiSelectDropdown"] *{color:var(--hf-ink) !important;}
+[data-testid="stMultiSelectDropdown"] [role="option"]:hover > *{background:var(--hf-head) !important;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover,
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"],
+[data-testid="stSelectboxVirtualDropdown"] [role="option"] > div{background-color:transparent;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover > *,
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] > *{background:var(--hf-head) !important;}
+
+/* secondary buttons */
+button[kind="secondary"]{background:var(--hf-card) !important; border-color:var(--hf-line) !important;}
+button[kind="secondary"], button[kind="secondary"] *{color:var(--hf-ink) !important;}
+button[kind="secondary"]:hover{border-color:var(--hf-navy-2) !important;}
+
+/* file uploader */
+[data-testid="stFileUploaderDropzone"], [data-testid="stFileUploader"] section{background:var(--hf-card) !important;
+  border-color:var(--hf-line) !important;}
+[data-testid="stFileUploaderFile"], [data-testid="stFileChip"]{background:var(--hf-head) !important;}
+[data-testid="stFileUploader"] *{color:var(--hf-ink);}
+[data-testid="stFileUploader"] small{color:var(--hf-muted) !important;}
+
+/* expanders */
+[data-testid="stExpander"] details{background:var(--hf-card) !important; border-color:var(--hf-line) !important;}
+[data-testid="stExpander"] summary{background:var(--hf-head) !important;}
+[data-testid="stExpander"] summary *{color:var(--hf-ink) !important;}
+[data-testid="stExpander"] svg{fill:var(--hf-ink) !important;}
+
+/* alerts (success / warning / error / info) */
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]){background:var(--hf-norm-bg) !important; color:var(--hf-norm-ink) !important;}
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]){background:var(--hf-high-bg) !important; color:var(--hf-high-ink) !important;}
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]){background:var(--hf-crit-bg) !important; color:var(--hf-crit-ink) !important;}
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]){background:var(--hf-info-bg) !important; color:var(--hf-info-ink) !important;}
+[data-testid="stAlertContainer"] *{color:inherit !important;}
+[data-testid="stAlertContainer"] a{text-decoration:underline;}
+[data-testid="stAlertContainer"] code{background:rgba(255,255,255,.08) !important;}
+
+/* progress bar, toggle, tooltips */
+[data-testid="stProgress"] > div > div > div{background:var(--hf-track) !important;}
+[data-testid="stProgress"] > div > div > div > div{background:var(--hf-navy-2) !important;}
+[data-testid="stTooltipIcon"] svg{stroke:var(--hf-muted) !important;}
+</style>
+"""
+
+
+def theme_css(dark: bool) -> str:
+    variables = DARK_VARS if dark else LIGHT_VARS
+    scheme = "dark" if dark else "light"
+    css = f"<style>:root{{{variables} color-scheme:{scheme};}}</style>" + CSS
+    return css + DARK_WIDGET_CSS if dark else css
 
 
 # ---------------------------------------------------------------------------
@@ -382,7 +492,7 @@ def run_batch(messages):
                 ("Normal", sum(r.get("urgency") == "Normal" for r in results), "", "norm"),
                 ("Failed", len(failed), "", ""),
             ])
-        latest_slot.markdown(f"<div style='color:#5a6b7b;font-size:.9rem'>{latest}</div>",
+        latest_slot.markdown(f"<div style='color:var(--hf-muted);font-size:.9rem'>{latest}</div>",
                              unsafe_allow_html=True)
 
     progress.progress(1.0, text="Finished")
@@ -582,7 +692,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-st.markdown(CSS, unsafe_allow_html=True)
+def _theme_from_url() -> bool:
+    # ?theme=light / ?theme=dark in the address bar keeps the choice across page refreshes.
+    return st.query_params.get("theme", "dark") != "light"
+
+
+def _remember_theme():
+    st.query_params["theme"] = "dark" if st.session_state["dark_mode"] else "light"
+
+
+st.session_state.setdefault("dark_mode", _theme_from_url())
+st.markdown(theme_css(st.session_state["dark_mode"]), unsafe_allow_html=True)
 
 for key, default in {
     "backend_url": DEFAULT_BACKEND_URL,
@@ -618,7 +738,12 @@ if health is None:
 
 # A radio (not st.tabs) so the chosen section survives the reruns that follow saving a decision.
 PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
-page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed", key="page")
+nav_col, theme_col = st.columns([6, 1], vertical_alignment="center")
+with nav_col:
+    page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed", key="page")
+with theme_col:
+    st.toggle("Dark mode", key="dark_mode", on_change=_remember_theme,
+              help="Switch between dark and light colours. Your choice is kept if you refresh the page.")
 
 # ---- Triage ---------------------------------------------------------------
 if page == PAGES[0]:
@@ -755,7 +880,7 @@ if page == PAGES[2]:
         if batch.get("failed"):
             with st.expander(f"{len(batch['failed'])} message(s) could not be analysed"):
                 for row, text, reason in batch["failed"]:
-                    st.markdown(f"**Row {row}:** {esc(text[:120])}  \n<span style='color:#b3261e'>{esc(reason)}</span>",
+                    st.markdown(f"**Row {row}:** {esc(text[:120])}  \n<span style='color:var(--hf-crit)'>{esc(reason)}</span>",
                                 unsafe_allow_html=True)
         render_kpis([
             ("Messages", summary.get("total_messages", len(results)), "analysed and saved", ""),
@@ -793,15 +918,15 @@ if page == PAGES[3]:
             render_bars("Urgency (human decision where reviewed)",
                         [(u, now.count(u), URGENCY_COLOR[u]) for u in URGENCY_ORDER])
             render_bars("Analysis source", [
-                ("OpenAI", sum(c.get("analysis_mode") == "OpenAI" for c in cases), "#1d466f"),
-                ("Local ML (provisional)", len(provisional), "#8a97a3"),
+                ("OpenAI", sum(c.get("analysis_mode") == "OpenAI" for c in cases), "var(--hf-navy-2)"),
+                ("Local ML (provisional)", len(provisional), "var(--hf-muted)"),
             ])
         with c2:
-            render_bars("Category", [(cat, sum(c.get("category") == cat for c in cases), "#1d466f") for cat in CATEGORIES])
+            render_bars("Category", [(cat, sum(c.get("category") == cat for c in cases), "var(--hf-navy-2)") for cat in CATEGORIES])
             render_bars("Review status", [
-                ("Awaiting review", sum(needs_review(c) for c in cases), "#c77700"),
-                ("Reviewed", len(reviewed), "#3f7d5a"),
-                ("No review required", sum(not c.get("escalate_to_human") and not c.get("human_reviewed") for c in cases), "#8a97a3"),
+                ("Awaiting review", sum(needs_review(c) for c in cases), "var(--hf-high)"),
+                ("Reviewed", len(reviewed), "var(--hf-norm)"),
+                ("No review required", sum(not c.get("escalate_to_human") and not c.get("human_reviewed") for c in cases), "var(--hf-muted)"),
             ])
 
         st.markdown("### Recent activity")
