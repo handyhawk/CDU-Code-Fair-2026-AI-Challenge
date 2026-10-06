@@ -4,7 +4,10 @@ primaryColor = "#12304f"
 backgroundColor = "#f4f6f8"
 secondaryBackgroundColor = "#ffffff"
 textColor = "#1b2733"
-font = "sans serif"
+# Public Sans: a plain, highly legible typeface used by public-sector design systems.
+# Falls back to the system sans-serif if there is no internet connection.
+font = "Public Sans:https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap, sans-serif"
+baseRadius = "small"
 
 [browser]
 gatherUsageStats = false
