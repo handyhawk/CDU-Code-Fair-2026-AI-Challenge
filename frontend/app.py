@@ -84,7 +84,7 @@ LIGHT_VARS = """
   --hf-ink:#1b2733; --hf-ink-2:#33414f; --hf-muted:#5b6b7b;
   --hf-line:#d5dce3; --hf-line-2:#e5eaef; --hf-bg:#f4f6f8; --hf-card:#ffffff; --hf-sunken:#f7f9fb;
   --hf-head:#eaeff4; --hf-hover:#f8fafc; --hf-track:#eceff2; --hf-heading:#12304f;
-  --hf-banner:#12304f; --hf-banner-edge:#7fa3c7;
+  --hf-banner:#12304f; --hf-banner-edge:#7fa3c7; --hf-nav:#1c4570;
   --hf-crit:#b3261e; --hf-crit-bg:#fbeceb; --hf-crit-ink:#8c1d18; --hf-crit-line:#e3a59e;
   --hf-high:#c77700; --hf-high-bg:#fdf1dc; --hf-high-ink:#7a4b00; --hf-high-line:#ecc88a;
   --hf-norm:#3f7d5a; --hf-norm-bg:#e7f1ea; --hf-norm-ink:#1f5a35; --hf-norm-line:#a9cdb6;
@@ -99,7 +99,7 @@ DARK_VARS = """
   --hf-ink:#e3e9ef; --hf-ink-2:#c9d3dc; --hf-muted:#93a3b3;
   --hf-line:#2d3b4a; --hf-line-2:#283544; --hf-bg:#0f1720; --hf-card:#16212d; --hf-sunken:#111b25;
   --hf-head:#1c2a38; --hf-hover:#1a2633; --hf-track:#243241; --hf-heading:#d6e4f2;
-  --hf-banner:#0b2440; --hf-banner-edge:#3d74ad;
+  --hf-banner:#0b2440; --hf-banner-edge:#3d74ad; --hf-nav:#123456;
   --hf-crit:#ef6b62; --hf-crit-bg:#3a1a1a; --hf-crit-ink:#ffb4ac; --hf-crit-line:#7a2e29;
   --hf-high:#f0a43a; --hf-high-bg:#3a2a12; --hf-high-ink:#ffd08a; --hf-high-line:#7a5418;
   --hf-norm:#5fbf86; --hf-norm-bg:#15301f; --hf-norm-ink:#a6e3bd; --hf-norm-line:#2e6a45;
@@ -117,9 +117,8 @@ h1,h2,h3{color:var(--hf-heading) !important; letter-spacing:-0.01em;}
 h3{font-size:1.05rem !important; margin-top:.4rem;}
 
 /* header */
-.hf-header{background:var(--hf-banner); color:#fff; border-radius:6px; padding:18px 24px;
-  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
-  border-bottom:4px solid var(--hf-banner-edge); margin-bottom:14px;}
+.hf-header{background:var(--hf-banner); color:#fff; border-radius:6px 6px 0 0; padding:18px 24px;
+  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;}
 .hf-title{font-size:1.5rem; font-weight:700; line-height:1.2;}
 .hf-sub{font-size:.9rem; opacity:.85; margin-top:2px;}
 .hf-status{display:flex; gap:8px; flex-wrap:wrap;}
@@ -238,7 +237,25 @@ button[kind="primary"], button[kind="primary"] *{color:var(--hf-on-accent) !impo
 button[kind="primary"]:hover{background:var(--hf-navy-2) !important;}
 button[kind="primary"]:disabled{background:var(--hf-disabled) !important; border-color:var(--hf-disabled) !important; opacity:1;}
 div[role="radiogroup"]{gap:8px;}
-.st-key-page div[role="radiogroup"]{padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--hf-line);}
+/* top navigation bar, attached under the banner and sticky while scrolling */
+[data-testid="stHeader"]{background:transparent !important; pointer-events:none;}
+[data-testid="stHeader"] *{pointer-events:auto;}
+.st-key-page{width:100% !important; background:var(--hf-nav); margin-top:-1rem; border-radius:0 0 6px 6px; padding:0 12px;
+  border-bottom:4px solid var(--hf-banner-edge); position:sticky; top:0; z-index:90;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.st-key-page div[role="radiogroup"]{gap:2px; flex-wrap:wrap;}
+.st-key-page [data-testid="stRadioOption"], .st-key-page label[data-baseweb="radio"]{background:transparent !important;
+  border:none !important; border-radius:0; padding:13px 18px 11px; border-bottom:3px solid transparent !important;}
+.st-key-page [data-testid="stRadioOption"] p, .st-key-page label[data-baseweb="radio"] p{color:rgba(255,255,255,.78) !important;
+  font-weight:600; font-size:.92rem;}
+.st-key-page [data-testid="stRadioOption"] svg, .st-key-page [data-testid="stRadioOption"] [data-testid="stIconMaterial"]{
+  color:rgba(255,255,255,.78) !important;}
+.st-key-page [data-testid="stRadioOption"]:hover{background:rgba(255,255,255,.08) !important;}
+.st-key-page [data-testid="stRadioOption"]:hover p{color:#fff !important;}
+.st-key-page [data-testid="stRadioOption"][data-selected="true"], .st-key-page label[data-baseweb="radio"]:has(input:checked){
+  background:rgba(255,255,255,.12) !important; border-bottom-color:#ffffff !important;}
+.st-key-page [data-testid="stRadioOption"][data-selected="true"] p,
+.st-key-page [data-testid="stRadioOption"][data-selected="true"] [data-testid="stIconMaterial"]{color:#fff !important;}
 [data-testid="stRadioOption"], label[data-baseweb="radio"]{background:var(--hf-card); border:1px solid var(--hf-line);
   border-radius:4px; padding:6px 16px; margin:0; cursor:pointer;}
 [data-testid="stRadioOption"] > div > div:first-child, label[data-baseweb="radio"] > div:first-child{display:none;}
@@ -276,7 +293,7 @@ div[role="radiogroup"]{gap:8px;}
 # .streamlit/config.toml (light), so they need to be recoloured here.
 DARK_WIDGET_CSS = """
 <style>
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stMain"]{background:var(--hf-bg) !important;}
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"]{background:var(--hf-bg) !important;}
 [data-testid="stSidebar"], [data-testid="stSidebar"] > div{background:var(--hf-card) !important;}
 .stApp, .stApp p, .stApp li, .stApp label, .stApp span, [data-testid="stMarkdownContainer"],
 [data-testid="stWidgetLabel"] *{color:var(--hf-ink);}
@@ -873,14 +890,6 @@ with st.sidebar:
             st.caption("Cases are stored by the backend and persist across restarts.")
 
 health = get_health()
-render_header(health)
-
-if st.session_state["flash"]:
-    st.success(st.session_state["flash"])
-    st.session_state["flash"] = None
-if st.session_state.get("flash_warning"):
-    st.warning(st.session_state["flash_warning"])
-    st.session_state["flash_warning"] = None
 
 cases, cases_error = get_cases()
 
@@ -963,14 +972,34 @@ with side_bottom:
         unsafe_allow_html=True,
     )
 
+render_header(health)
+
+# Top navigation bar (a styled radio, so the chosen section survives the reruns after saving a decision).
+NAV_ICONS = {
+    PAGES[0]: ":material/edit_note:",
+    PAGES[1]: ":material/fact_check:",
+    PAGES[2]: ":material/upload_file:",
+    PAGES[3]: ":material/monitoring:",
+}
+page = st.radio(
+    "Section", PAGES, horizontal=True, label_visibility="collapsed", key="page",
+    format_func=lambda name: f"{NAV_ICONS[name]} {name}"
+    + (f" ({len(awaiting_all)})" if name == PAGES[1] and awaiting_all else ""),
+)
+
+if st.session_state["flash"]:
+    st.success(st.session_state["flash"])
+    st.session_state["flash"] = None
+if st.session_state.get("flash_warning"):
+    st.warning(st.session_state["flash_warning"])
+    st.session_state["flash_warning"] = None
+
 if health is None:
     st.error(
         f"The backend at {st.session_state['backend_url']} is not reachable. "
         "Start it with `python app.py` in the backend folder, or change it under Connection settings in the sidebar."
     )
 
-# A radio (not st.tabs) so the chosen section survives the reruns that follow saving a decision.
-page = st.radio("Section", PAGES, horizontal=True, label_visibility="collapsed", key="page")
 
 # ---- Triage ---------------------------------------------------------------
 if page == PAGES[0]:
