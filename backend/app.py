@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+from safety_engine import apply_safety
 from flask import Flask, jsonify, request
 
 import database
@@ -31,7 +32,7 @@ analyzer = UrgencyAnalyzer()
 DEFAULT_TRAINING_CSV = os.path.join(
     os.path.dirname(__file__),
     "data",
-    "HumanFirst_AI_30_Test_Messages.csv",
+    "HumanFirst_training_messages_v3.csv",
 )
 
 
@@ -104,7 +105,7 @@ def analyse_with_fallback(
             "classifier used."
         )
 
-        return result
+        return apply_safety(message, result)
 
     except Exception as exc:
 
@@ -151,7 +152,7 @@ def analyse_with_fallback(
               "human review."
         ).strip()
 
-        return local_result
+        return apply_safety(message, local_result)
 
 
 # ---------------------------------------------------------------------

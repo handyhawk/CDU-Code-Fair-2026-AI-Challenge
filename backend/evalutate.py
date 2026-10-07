@@ -1,7 +1,7 @@
 """
 Run:
     python evaluate.py [path/to/training_csv]
-    (defaults to data/HumanFirst_AI_30_Test_Messages.csv)
+    (defaults to data/HumanFirst_training_messages_v3.csv)
 """
 
 import sys
@@ -75,7 +75,7 @@ def evaluate_field(df: pd.DataFrame, field: str) -> dict:
 
 def main():
     csv_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        os.path.dirname(__file__), "data", "HumanFirst_AI_30_Test_Messages.csv"
+        os.path.dirname(__file__), "data", "HumanFirst_training_messages_v3.csv"
     )
     df = load_training_data(csv_path)
     print(f"Loaded {len(df)} labeled examples from {csv_path}\n")

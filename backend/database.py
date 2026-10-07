@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS cases (
     matched_risk_keywords       TEXT,
     attention_language_detected INTEGER NOT NULL DEFAULT 0,
     explanation                 TEXT,
+    safety                      TEXT,
+    safety_notes                TEXT,
     analysis_mode               TEXT NOT NULL DEFAULT 'Local ML',
     provisional                 INTEGER NOT NULL DEFAULT 0,
     source                      TEXT NOT NULL DEFAULT 'single',
@@ -89,6 +91,22 @@ def init_db(
                 """
             )
 
+        if "safety" not in existing_columns:
+            conn.execute(
+                """
+                ALTER TABLE cases
+                ADD COLUMN safety TEXT
+                """
+            )
+
+        if "safety_notes" not in existing_columns:
+            conn.execute(
+                """
+                ALTER TABLE cases
+                ADD COLUMN safety_notes TEXT
+                """
+            )
+
         conn.commit()
 
     finally:
@@ -116,6 +134,14 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 
     d["matched_risk_keywords"] = json.loads(
         d["matched_risk_keywords"] or "[]"
+    )
+
+    d["safety"] = json.loads(
+        d.get("safety") or "{}"
+    )
+
+    d["safety_notes"] = json.loads(
+        d.get("safety_notes") or "[]"
     )
 
     return d
@@ -151,12 +177,14 @@ def insert_case(
                 matched_risk_keywords,
                 attention_language_detected,
                 explanation,
+                safety,
+                safety_notes,
                 analysis_mode,
                 provisional,
                 source,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 analysis["message"],
@@ -187,6 +215,18 @@ def insert_case(
                     )
                 ),
                 analysis.get("explanation"),
+                json.dumps(
+                    analysis.get(
+                        "safety",
+                        {},
+                    )
+                ),
+                json.dumps(
+                    analysis.get(
+                        "safety_notes",
+                        [],
+                    )
+                ),
                 analysis.get(
                     "analysis_mode",
                     "Local ML",
