@@ -339,6 +339,24 @@ body{background:var(--hf-bg) !important; color:var(--hf-ink);}
   -webkit-text-fill-color:var(--hf-ink) !important;}
 [data-testid="stPopoverBody"] label, [data-testid="stPopoverBody"] p{color:var(--hf-ink) !important;}
 [data-testid="stPopoverBody"] [data-testid="stTextInputRootElement"]{background:var(--hf-sunken) !important;}
+/* Wrappers around each control must never paint their own (white) background over the dark card. Some
+   browsers / Streamlit builds give them one, which showed as white bands behind the labels and gaps. */
+[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
+[data-testid="stPopoverBody"] [data-testid="stElementContainer"],
+[data-testid="stPopoverBody"] [data-testid="stToggle"],
+[data-testid="stPopoverBody"] [data-testid="stCheckbox"],
+[data-testid="stPopoverBody"] [data-testid="stTextInput"],
+[data-testid="stPopoverBody"] [data-testid="stButton"],
+[data-testid="stPopoverBody"] [data-testid="stDownloadButton"],
+[data-testid="stPopoverBody"] [data-testid="stWidgetLabel"],
+[data-testid="stPopoverBody"] [data-testid="stMarkdown"],
+[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"],
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"],
+[data-testid="stPopoverBody"] [data-testid="stExpander"],
+[data-testid="stPopoverBody"] [data-testid="stExpander"] details > div,
+[data-testid="stPopoverBody"] label{background:transparent !important;}
+[data-testid="stPopoverBody"] [data-testid="stWidgetLabel"] *, [data-testid="stPopoverBody"] label *{color:var(--hf-ink) !important;}
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"] *{color:var(--hf-muted) !important;}
 
 /* secondary buttons */
 button[kind="secondary"]{background:var(--hf-card) !important; border-color:var(--hf-line) !important;}
