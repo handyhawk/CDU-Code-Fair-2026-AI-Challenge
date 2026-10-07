@@ -265,8 +265,10 @@ div[role="radiogroup"]{gap:8px;}
   min-height:38px; padding:0 14px;}
 .st-key-settings button, .st-key-settings button *{color:#fff !important;}
 .st-key-settings button:hover{background:rgba(255,255,255,.12) !important; border-color:#fff !important;}
-.hf-mast .meta{padding-right:130px;}
-@media (max-width:600px){.hf-mast .meta{padding-right:0; width:100%;}}
+.st-key-settings .hf-status, .st-key-settings .hf-status *{color:#fff !important; font-size:.88rem; white-space:nowrap;}
+.st-key-settings [data-testid="stMarkdownContainer"], .st-key-settings [data-testid="stMarkdownContainer"] p{margin:0 !important;}
+.st-key-settings [data-testid="stMarkdown"], .st-key-settings .stElementContainer{margin:0 !important;}
+@media (max-width:600px){.st-key-settings .stElementContainer:has(.hf-status){display:none !important;}}
 [data-testid="stSidebar"], [data-testid="stExpandSidebarButton"]{display:none !important;}
 </style>
 """
@@ -325,6 +327,12 @@ body{background:var(--hf-bg) !important; color:var(--hf-ink);}
 [data-testid="stDialog"] [role="dialog"] > div:first-child *{color:var(--hf-heading) !important;}
 [data-testid="stDialog"] pre, [data-testid="stDialog"] code, [data-testid="stErrorCodeBlock"]{background:var(--hf-sunken) !important;}
 [data-testid="stDialog"] svg{fill:var(--hf-ink) !important; color:var(--hf-ink) !important;}
+
+/* unticked checkbox (e.g. "I understand" in Settings) is a white square by default */
+[data-testid="stCheckbox"] label:not([data-selected="true"]) > span + div:not(:has(div)){
+  background:var(--hf-sunken) !important; border-color:var(--hf-input-line) !important;}
+/* fallback for Streamlit versions that mark the pop-up differently */
+[role="dialog"][aria-label="Settings"]{background:var(--hf-card) !important; color:var(--hf-ink) !important;}
 
 /* settings pop-up is rendered outside the app container, so theme its inputs directly */
 [data-testid="stPopoverBody"] input{background:var(--hf-sunken) !important; color:var(--hf-ink) !important;
@@ -595,19 +603,20 @@ def run_batch(messages):
 # HTML renderers
 # ---------------------------------------------------------------------------
 
-def render_header(health):
-    """Masthead: service name on the left, service status on the right."""
+def service_status(health) -> str:
     if health is None:
-        status = '<span class="hf-dot bad"></span>Service offline'
-    elif not health.get("local_model_trained"):
-        status = '<span class="hf-dot warn"></span>Fallback model not ready'
-    else:
-        status = '<span class="hf-dot ok"></span>Service online'
+        return '<span class="hf-dot bad"></span>Service offline'
+    if not health.get("local_model_trained"):
+        return '<span class="hf-dot warn"></span>Fallback model not ready'
+    return '<span class="hf-dot ok"></span>Service online'
+
+
+def render_header(health):
+    """Masthead band with the service name. Status and Settings sit on top of its right end (see .st-key-settings)."""
     st.markdown(
         '<div class="hf-mast hf-bleed"><div class="in">'
         '<div class="hf-brand"><div class="hf-mark">HF</div><div><div class="t">HumanFirst AI</div>'
         '<div class="s">Inbox triage service</div></div></div>'
-        f'<div class="meta">{status}</div>'
         "</div></div>",
         unsafe_allow_html=True,
     )
@@ -756,7 +765,11 @@ def render_review(case: dict, prefix: str):
             label = "Update decision"
         else:
             label = f"Override to {final}" if overriding else f"Confirm {final}"
-        if st.button(label, type="primary", key=f"save_{key}", disabled=missing_reason):
+        # Same reason as Analyse: the reason box only reaches the app when it loses focus, so check on click.
+        if st.button(label, type="primary", key=f"save_{key}"):
+            if missing_reason:
+                st.error("Add a reason for the override. It is kept with the case.")
+                return
             try:
                 updated = api(
                     "POST", f"/cases/{case_id}/review", timeout=15,
@@ -865,7 +878,9 @@ st.session_state.setdefault("q_filters_version", 0)
 awaiting_all = sort_queue([c for c in cases if needs_review(c)])
 
 render_header(health)
-with st.container(key="settings"):
+# Status and Settings share one row, so the button can never cover the status text.
+with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="medium", width="content"):
+    st.markdown(f'<span class="hf-status">{service_status(health)}</span>', unsafe_allow_html=True, width="content")
     render_settings()
 
 # Top navigation (a styled radio, so the chosen section survives the reruns after saving a decision).
@@ -905,7 +920,12 @@ if page == PAGES[0]:
             placeholder="Paste or type the message to analyse",
         )
         analyse, clear = st.columns([3, 2])
-        if analyse.button("Analyse message", type="primary", disabled=not message.strip() or health is None, width="stretch"):
+        # Not disabled while the box looks empty: Streamlit only sends typed text when the box loses focus,
+        # so a disabled button would ignore the first click. Check on click instead.
+        if analyse.button("Analyse message", type="primary", disabled=health is None, width="stretch"):
+            if not message.strip():
+                st.session_state.update(last_error="Type or paste a message to analyse.", last_result=None)
+                st.rerun()
             with st.spinner("Analysing..."):
                 try:
                     st.session_state["last_result"] = api("POST", "/triage", timeout=120, json={"message": message})
