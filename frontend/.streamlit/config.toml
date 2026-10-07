@@ -1,8 +1,8 @@
 [theme]
 base = "light"
 primaryColor = "#12304f"
-backgroundColor = "#f4f6f8"
-secondaryBackgroundColor = "#ffffff"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f8fa"
 textColor = "#1b2733"
 # Public Sans: a plain, highly legible typeface used by public-sector design systems.
 # Falls back to the system sans-serif if there is no internet connection.

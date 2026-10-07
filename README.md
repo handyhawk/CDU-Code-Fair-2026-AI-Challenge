@@ -69,7 +69,7 @@ decision are always visible side by side. Cases are stored in
 | **Batch upload**     | Upload a CSV of messages and watch live progress as each one is classified    |
 | **Dashboard**        | Counts by urgency, category and review status                                 |
 
-A light/dark toggle and an inbox summary are in the sidebar.
+The **Settings** button on each page holds the dark mode toggle, the backend address, a CSV export and a demo reset.
 
 ---
 
@@ -178,8 +178,7 @@ streamlit run app.py
 ```
 
 The app opens at <http://localhost:8501>. Both terminals must stay
-running. The sidebar's **System status** should show *Backend online* and
-*Primary: OpenAI*.
+running. The top right of the page should read *Service online*.
 
 ### Try it
 
@@ -196,7 +195,7 @@ Expected: `Critical`, classified by `OpenAI`, flagged for human review.
 |------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
 | Backend crashes on start with `Missing credentials`        | `.env` is missing, in the wrong folder, or misnamed. It must be `backend/.env`, containing `OPENAI_API_KEY=...`. |
 | Every case shows **Local ML** and **Provisional**          | OpenAI call is failing. Check the backend terminal for `[OpenAI unavailable]`: usually an invalid key, no credit, or no internet. |
-| Frontend says the backend is not reachable                 | Backend is not running, or the URL in sidebar → **Connection settings** is wrong.                |
+| Frontend says the backend is not reachable                 | Backend is not running, or the address in **Settings → Backend address** is wrong.                |
 | Changes to `.env` have no effect                           | Restart the backend. The key is read once at start-up.                                           |
 | Theme or font changes do not appear                        | Restart `streamlit run`. `.streamlit/config.toml` is read only at start-up.                      |
 
@@ -237,7 +236,7 @@ curl -X POST http://localhost:5000/train -F "file=@path/to/new_cases.csv"
 
 | What                 | Where                                          | Notes                                              |
 |----------------------|------------------------------------------------|----------------------------------------------------|
-| Backend address      | Sidebar → **Connection settings**, or `DEFAULT_BACKEND_URL` in `frontend/app.py` | Default `http://localhost:5000`                    |
+| Backend address      | **Settings → Backend address**, or `DEFAULT_BACKEND_URL` in `frontend/app.py` | Default `http://localhost:5000`                    |
 | Theme, font, colours | `frontend/.streamlit/config.toml` and the `LIGHT_VARS` / `DARK_VARS` blocks in `frontend/app.py` | Restart Streamlit after editing the TOML file      |
 | Frontend port        | `streamlit run app.py --server.port 8600`      | Default `8501`                                     |
 
