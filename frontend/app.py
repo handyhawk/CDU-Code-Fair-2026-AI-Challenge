@@ -259,6 +259,14 @@ div[role="radiogroup"]{gap:8px;}
   background:var(--hf-accent); border-color:var(--hf-accent);}
 [data-testid="stRadioOption"][data-selected="true"] p, label[data-baseweb="radio"]:has(input:checked) p{color:var(--hf-on-accent);}
 
+/* settings: a button in the top-right corner of the masthead */
+.st-key-settings{position:absolute; top:13px; right:max(2rem, calc((100% - 1036px) / 2)); width:auto !important; z-index:120;}
+.st-key-settings button{background:transparent !important; border:1px solid rgba(255,255,255,.55) !important;
+  min-height:38px; padding:0 14px;}
+.st-key-settings button, .st-key-settings button *{color:#fff !important;}
+.st-key-settings button:hover{background:rgba(255,255,255,.12) !important; border-color:#fff !important;}
+.hf-mast .meta{padding-right:130px;}
+@media (max-width:600px){.hf-mast .meta{padding-right:0; width:100%;}}
 [data-testid="stSidebar"], [data-testid="stExpandSidebarButton"]{display:none !important;}
 </style>
 """
@@ -687,12 +695,8 @@ def render_empty(text: str):
 
 
 def render_intro(title: str, text: str = ""):
-    """Page heading on the left, Settings on the right."""
     lede = f"<p>{esc(text)}</p>" if text else ""
-    heading, settings = st.columns([5, 1], vertical_alignment="bottom")
-    heading.markdown(f'<div class="hf-intro"><h1>{esc(title)}</h1>{lede}</div>', unsafe_allow_html=True)
-    with settings:
-        render_settings()
+    st.markdown(f'<div class="hf-intro"><h1>{esc(title)}</h1>{lede}</div>', unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -798,7 +802,7 @@ for key, default in {
 
 def render_settings():
     """Small, out-of-the-way settings: theme, backend address, export and demo reset."""
-    with st.popover("Settings", icon=":material/settings:", width="stretch"):
+    with st.popover("Settings", icon=":material/settings:", width="content"):
         st.toggle("Dark mode", key="dark_mode", on_change=_remember_theme)
         st.text_input("Backend address", key="backend_url")
         st.download_button(
@@ -827,6 +831,8 @@ st.session_state.setdefault("q_filters_version", 0)
 awaiting_all = sort_queue([c for c in cases if needs_review(c)])
 
 render_header(health)
+with st.container(key="settings"):
+    render_settings()
 
 # Top navigation (a styled radio, so the chosen section survives the reruns after saving a decision).
 page = st.radio(
