@@ -73,7 +73,7 @@ public writes a message and gets a confirmation with a reference number such as
 
 | Page             | Purpose                                                                                   |
 |------------------|-------------------------------------------------------------------------------------------|
-| **Review queue** | Cases awaiting a human, most urgent first. Case details, AI result, confirm or override    |
+| **Review queue** | Cases awaiting a human, most urgent first. Search by reference (`HF-000123` or just `123`), case details, AI and Safety Engine result, confirm or override |
 | **Batch upload** | Upload a CSV of messages and watch live progress as each one is classified                 |
 | **Dashboard**    | Counts by urgency, category, review status and analysis engine                             |
 

@@ -26,6 +26,7 @@ All text shown from the backend is HTML-escaped before it is rendered.
 import csv
 import html
 import io
+import re
 from datetime import datetime
 
 import requests
@@ -130,6 +131,10 @@ CSS = """
 
 /* keyboard focus: high-visibility yellow, as on public-sector sites */
 .stApp :focus-visible{outline:3px solid var(--hf-focus) !important; outline-offset:0 !important;}
+.stApp [data-testid="stTextInputRootElement"] input:focus-visible,
+.stApp [data-testid="stTextAreaRootElement"] textarea:focus-visible{outline:none !important;}
+.stApp [data-testid="stTextInputRootElement"]:focus-within,
+.stApp [data-testid="stTextAreaRootElement"]:focus-within{outline:3px solid var(--hf-focus) !important; outline-offset:0;}
 /* form fields with a clear outline */
 [data-testid="stTextAreaRootElement"], [data-testid="stTextInputRootElement"],
 [data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"]{
@@ -174,6 +179,7 @@ h3{font-size:1.15rem !important; margin-top:.2rem;}
 .hf-case.norm{border-left-color:var(--hf-norm);}
 .hf-top{display:flex; gap:16px; align-items:center; flex-wrap:wrap;}
 .hf-meta{font-size:.85rem; color:var(--hf-muted); margin:8px 0 0;}
+.hf-ai{font-size:.85rem; color:var(--hf-muted);}
 .hf-quote{border-left:3px solid var(--hf-line); padding:2px 0 2px 14px; margin:16px 0 4px; font-size:1rem;
   color:var(--hf-ink); line-height:1.5;}
 .hf-dl{display:grid; grid-template-columns:130px minmax(0,1fr); gap:10px 16px; margin:16px 0 0; font-size:.95rem;}
@@ -198,7 +204,7 @@ h3{font-size:1.15rem !important; margin-top:.2rem;}
 
 /* tables */
 .hf-table-wrap{border:1px solid var(--hf-line); background:var(--hf-card); max-height:340px; overflow:auto;}
-table.hf-table{border-collapse:collapse; width:100%; font-size:.9rem; table-layout:fixed;}
+table.hf-table{border-collapse:collapse; width:100%; font-size:.9rem; table-layout:fixed; margin:0 !important;}
 table.hf-table th{position:sticky; top:0; background:var(--hf-head); color:var(--hf-ink-2); text-align:left; font-weight:700;
   padding:10px 12px; white-space:nowrap; border-bottom:1px solid var(--hf-line); font-size:.86rem;}
 table.hf-table td{padding:10px 12px; border-bottom:1px solid var(--hf-line-2); vertical-align:middle; color:var(--hf-ink);
@@ -270,6 +276,36 @@ div[role="radiogroup"]{gap:8px;}
 @media (max-width:600px){.st-key-settings .stElementContainer:has(.hf-status), .st-key-to_citizen{display:none !important;}
   .st-key-to_citizen_menu{display:block !important;}}
 [data-testid="stSidebar"], [data-testid="stExpandSidebarButton"]{display:none !important;}
+
+/* the Settings pop-up is rendered outside .stApp, so give it the same typeface */
+[data-testid="stPopoverBody"] p, [data-testid="stPopoverBody"] label, [data-testid="stPopoverBody"] input,
+[data-testid="stPopoverBody"] summary, [data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"]{
+  font-family:'Public Sans', 'Segoe UI', Arial, sans-serif;}
+
+/* queue filters greyed out while a reference search is active */
+[data-testid="stRadio"]:has(input:disabled) [data-testid="stRadioOption"]{opacity:.45; cursor:not-allowed;}
+[data-testid="stSelectbox"]:has(input:disabled){opacity:.45;}
+/* "Clear search": a quiet text button */
+button[kind="tertiary"]{color:var(--hf-navy) !important; font-weight:600; padding:0 !important; min-height:0 !important;}
+button[kind="tertiary"] *{color:var(--hf-navy) !important; white-space:nowrap;}
+button[kind="tertiary"]:hover p{text-decoration:underline;}
+
+/* tablets: drop the two least important columns so the message keeps its room */
+@media (max-width:900px){
+  table.hf-table th:nth-child(4), table.hf-table td:nth-child(4),
+  table.hf-table th:nth-child(5), table.hf-table td:nth-child(5){display:none;}
+  table.hf-table th:nth-child(6){width:235px;}
+}
+/* phones: keep the message readable in tables, and lay the figures out as a tidy 2-column grid */
+@media (max-width:600px){
+  table.hf-table th:nth-child(n+4), table.hf-table td:nth-child(n+4){display:none;}
+  table.hf-table th:nth-child(1){width:96px;} table.hf-table th:nth-child(2){width:98px;}
+  table.hf-table th, table.hf-table td{padding:10px 8px;}
+  .hf-stats{display:grid; grid-template-columns:1fr 1fr; gap:18px 0;}
+  .hf-stat, .hf-stat:first-child{padding:0 0 0 14px; min-width:0;}
+  .hf-stat:first-child{border-left:3px solid var(--hf-line);}
+  .hf-bar-row{grid-template-columns:120px 1fr 32px;}
+}
 </style>
 """
 
@@ -450,6 +486,58 @@ def ref(case_id) -> str:
         return "HF-??????"
 
 
+def parse_reference(query: str):
+    """'HF-000123', 'hf123', '000123' or '123' -> '123'. None when the text holds no digits."""
+    digits = re.sub(r"\D", "", query or "")
+    return str(int(digits)) if digits else None
+
+
+def find_by_reference(query: str, cases: list) -> list:
+    """Exact reference first, then other references containing the same digits (e.g. '12' -> HF-000120)."""
+    number = parse_reference(query)
+    if number is None:
+        return []
+    exact = [c for c in cases if str(c.get("id")) == number]
+    partial = [c for c in cases if c not in exact and number in ref(c.get("id"))[3:].lstrip("0")]
+    return exact + sort_queue(partial)
+
+
+# Safety Engine signal codes (backend/safety_engine.py), in words a reviewer reads.
+SAFETY_SIGNAL_TEXT = {
+    "POWER": "loss of power",
+    "MEDICATION": "medication or medical equipment",
+    "HOUSING": "housing crisis",
+    "THREAT": "threat or violence",
+    "VULNERABLE": "vulnerable person",
+    "EXTREME_HEAT": "extreme heat",
+    "SELF_HARM": "self-harm language",
+}
+
+
+def safety_info(case: dict) -> dict:
+    safety = case.get("safety")
+    return safety if isinstance(safety, dict) else {}
+
+
+def risk_factors(case: dict) -> list:
+    """Words the model matched plus the Safety Engine's signals, readable and without repeats."""
+    seen, out = set(), []
+    for item in case.get("matched_risk_keywords") or []:
+        text = SAFETY_SIGNAL_TEXT.get(str(item), str(item))
+        if text.lower() not in seen:
+            seen.add(text.lower())
+            out.append(text)
+    return out
+
+
+_SAFETY_SENTENCE = re.compile(r"\s*Safety Engine raised urgency from \w+ to \w+(?: due to [^.]*)?\.")
+
+
+def clean_explanation(case: dict) -> str:
+    """The backend appends a coded 'Safety Engine raised...' sentence; it is shown as its own row instead."""
+    return _SAFETY_SENTENCE.sub("", str(case.get("explanation") or "")).strip()
+
+
 def engine_name(case: dict) -> str:
     return "OpenAI" if case.get("analysis_mode") == "OpenAI" else "Local ML"
 
@@ -488,17 +576,21 @@ def sort_queue(cases: list) -> list:
 
 def cases_to_csv(cases: list) -> str:
     fields = [
-        "id", "created_at", "message", "urgency", "human_urgency", "urgency_confidence",
+        "reference", "created_at", "message", "urgency", "human_urgency", "urgency_confidence",
         "category", "route", "escalation", "escalate_to_human", "analysis_mode", "provisional",
-        "matched_risk_keywords", "source", "human_reviewed", "human_notes", "reviewed_at",
+        "matched_risk_keywords", "safety_raised", "safety_notes", "source", "human_reviewed", "human_notes",
+        "reviewed_at",
     ]
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
     for case in cases:
         row = dict(case)
-        if isinstance(row.get("matched_risk_keywords"), list):
-            row["matched_risk_keywords"] = ", ".join(row["matched_risk_keywords"])
+        row["reference"] = ref(case.get("id"))
+        row["matched_risk_keywords"] = ", ".join(risk_factors(case))
+        row["safety_raised"] = bool(safety_info(case).get("raised"))
+        if isinstance(row.get("safety_notes"), list):
+            row["safety_notes"] = " ".join(map(str, row["safety_notes"]))
         writer.writerow(row)
     return buffer.getvalue()
 
@@ -650,8 +742,11 @@ def render_header(subtitle: str):
 
 def render_case(case: dict, show_message: bool = True):
     """One case, as plain facts: urgency, who analysed it, and where it is in human review."""
-    urgency = case.get("urgency", "Normal")
+    # Lead with the urgency that now applies (the reviewer's, once they have decided), so the card agrees
+    # with the queue table; when the reviewer changed it, the AI's call is shown next to it.
+    urgency = current_urgency(case)
     state_css, state_text = review_state(case)
+    ai_note = (f'<span class="hf-ai">AI said {esc(case.get("urgency"))}</span>' if was_overridden(case) else "")
 
     rows = [
         ("Category", esc(case.get("category") or "Unclassified")),
@@ -664,10 +759,17 @@ def render_case(case: dict, show_message: bool = True):
         confidence = case.get("urgency_confidence")
         if confidence is not None:
             rows.append(("Confidence", f"{confidence:.0%}"))
-    risks = case.get("matched_risk_keywords") or []
+    risks = risk_factors(case)
     if risks:
-        rows.append(("Risk factors", esc(", ".join(map(str, risks)))))
-    rows.append(("Explanation", esc(case.get("explanation") or "No explanation available.")))
+        rows.append(("Risk factors", esc(", ".join(risks))))
+    safety = safety_info(case)
+    if safety.get("checked"):
+        if safety.get("raised"):
+            rows.append(("Safety check", f'<span class="hf-warn">Raised urgency from {esc(safety.get("model_urgency"))} '
+                                         f'to {esc(safety.get("final_urgency"))}</span>'))
+        else:
+            rows.append(("Safety check", "Checked. No change to urgency."))
+    rows.append(("Explanation", esc(clean_explanation(case) or "No explanation available.")))
     facts = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows)
 
     notes = ""
@@ -680,15 +782,15 @@ def render_case(case: dict, show_message: bool = True):
         notes += (
             '<div class="hf-note info">Urgent-sounding wording was noted. It does not change the urgency.</div>'
         )
-    safety = case.get("safety_notes")  # optional field, populated once the Safety Engine is added
-    if safety:
-        text = "; ".join(map(str, safety)) if isinstance(safety, list) else str(safety)
+    safety_notes = case.get("safety_notes")  # findings from backend/safety_engine.py
+    if safety_notes:
+        text = " ".join(map(str, safety_notes)) if isinstance(safety_notes, list) else str(safety_notes)
         notes += f'<div class="hf-note warn"><b>Safety check.</b> {esc(text)}</div>'
 
     quote = f'<div class="hf-quote">{multiline(case.get("message"))}</div>' if show_message else ""
     st.markdown(
         f'<div class="hf-case {URGENCY_CLASS.get(urgency, "norm")}">'
-        f'<div class="hf-top">{urgency_badge(urgency, True)}<span class="hf-st {state_css}">{state_text}</span></div>'
+        f'<div class="hf-top">{urgency_badge(urgency, True)}<span class="hf-st {state_css}">{state_text}</span>{ai_note}</div>'
         f'<div class="hf-meta">{ref(case.get("id"))} &middot; Received {esc(fmt_time(case.get("created_at")))}</div>'
         f'{quote}<dl class="hf-dl">{facts}</dl>{notes}</div>',
         unsafe_allow_html=True,
@@ -712,6 +814,8 @@ def render_table(cases: list, limit: int = 60, selected_id=None):
         urgency = urgency_badge(current_urgency(case))
         if was_overridden(case):
             urgency += f'<div class="hf-was">AI: {esc(case.get("urgency"))}</div>'
+        elif safety_info(case).get("raised"):
+            urgency += '<div class="hf-was" title="Raised by the safety check">Safety raised</div>'
         selected = ' class="sel"' if case.get("id") == selected_id else ""
         rows += (
             f'<tr{selected}><td class="hf-id">{ref(case.get("id"))}</td><td>{urgency}</td>'
@@ -1026,27 +1130,57 @@ if page == PAGES[0]:
             "Reviewed": sum(bool(c.get("human_reviewed")) for c in cases),
             "All cases": len(cases),
         }
-        c_status, c_level = st.columns([3, 1], vertical_alignment="center")
-        status = c_status.radio("Show", list(counts), horizontal=True, label_visibility="collapsed",
-                                key=f"q_status_{v}", format_func=lambda s: f"{s} ({counts[s]})")
-        level = c_level.selectbox("Urgency", ["All urgencies"] + URGENCY_ORDER, key=f"q_level_{v}",
-                                  label_visibility="collapsed")
+        search_key = f"q_search_{v}"
+        query = (st.session_state.get(search_key) or "").strip()
+        searching = bool(query)
 
-        shown = [
-            c for c in cases
-            if (level == "All urgencies" or current_urgency(c) == level)
-            and (status == "All cases" or (status == "Reviewed") == bool(c.get("human_reviewed")))
-            and (status != "Awaiting review" or needs_review(c))
-        ]
-        shown = sort_queue(shown)
+        c_status, c_search, c_level = st.container(key="q_filters").columns([5, 3, 2], vertical_alignment="center")
+        # While a reference is being searched, the queue filters do not apply, so they are greyed out.
+        status = c_status.radio("Show", list(counts), horizontal=True, label_visibility="collapsed",
+                                key=f"q_status_{v}", format_func=lambda s: f"{s} ({counts[s]})",
+                                disabled=searching)
+        c_search.text_input("Search by reference", key=search_key, placeholder="Reference, e.g. HF-000123",
+                            label_visibility="collapsed", icon=":material/search:")
+        level = c_level.selectbox("Urgency", ["All urgencies"] + URGENCY_ORDER, key=f"q_level_{v}",
+                                  label_visibility="collapsed", disabled=searching)
+
+        def clear_search():
+            st.session_state[search_key] = ""
+
+        if searching:
+            shown = find_by_reference(query, cases)
+            if parse_reference(query) is None:
+                message = "Enter a reference number, for example HF-000123."
+            elif not shown:
+                message = f"No case has the reference {query.upper()}."
+            else:
+                exact = parse_reference(query) == str(shown[0].get("id"))
+                message = (f"Found {ref(shown[0]['id'])}" if exact and len(shown) == 1
+                           else f"{len(shown)} references contain {parse_reference(query)}")
+                message += " in all cases."
+            c_msg, c_clear = st.columns([3, 1], vertical_alignment="center")
+            c_msg.markdown(f'<div class="hf-line" style="margin:0">{esc(message)}</div>', unsafe_allow_html=True)
+            c_clear.container(horizontal_alignment="right").button("Clear search", key=f"q_clear_{v}", on_click=clear_search, type="tertiary",
+                           icon=":material/close:")
+        else:
+            shown = sort_queue([
+                c for c in cases
+                if (level == "All urgencies" or current_urgency(c) == level)
+                and (status == "All cases" or (status == "Reviewed") == bool(c.get("human_reviewed")))
+                and (status != "Awaiting review" or needs_review(c))
+            ])
 
         if not shown:
-            render_empty("Nothing waiting for review." if status == "Awaiting review" else "No cases match.")
+            if not searching:
+                render_empty("Nothing waiting for review." if status == "Awaiting review" else "No cases match.")
         else:
             by_id = {c["id"]: c for c in shown}
             # Open the most urgent case straight away; a selection that left the list falls back to the top.
+            # A new search always opens its best match.
             st.session_state.setdefault("q_case_version", 0)
-            if st.session_state.get(f"queue_case_{st.session_state['q_case_version']}") not in by_id:
+            if (st.session_state.get(f"queue_case_{st.session_state['q_case_version']}") not in by_id
+                    or st.session_state.get("q_last_search") != query):
+                st.session_state["q_last_search"] = query
                 st.session_state["q_case_version"] += 1  # fresh widget, so it starts on the top case
             case_key = f"queue_case_{st.session_state['q_case_version']}"
             chosen = st.session_state.get(case_key, shown[0]["id"])
