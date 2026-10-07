@@ -906,7 +906,7 @@ awaiting_all = sort_queue([c for c in cases if needs_review(c)])
 
 render_header("Contact us" if view == "citizen" else "Staff portal")
 # Controls on the right of the masthead share one row, so they can never cover each other.
-with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="small", width="content"):
+with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="small", width="stretch"):
     if view == "citizen":
         st.button("Staff portal", key="to_staff", on_click=switch_view, args=("staff",), icon=":material/badge:")
     else:
