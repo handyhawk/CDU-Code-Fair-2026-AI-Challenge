@@ -60,16 +60,25 @@ saved with the case, so the original AI result and the final human
 decision are always visible side by side. Cases are stored in
 `backend/data/cases.db` and survive restarts.
 
-### Frontend pages
+### Two portals, one app
 
-| Page                 | Purpose                                                                      |
-|----------------------|------------------------------------------------------------------------------|
-| **Triage a message** | Paste one message and see urgency, category, route, engine and explanation    |
-| **Review queue**     | Work through cases awaiting a human, filter them, confirm or override         |
-| **Batch upload**     | Upload a CSV of messages and watch live progress as each one is classified    |
-| **Dashboard**        | Counts by urgency, category and review status                                 |
+The frontend has two views. Switch with the button in the top-right corner,
+or open them directly with `?view=citizen` (the default) or `?view=staff`.
 
-The **Settings** button on each page holds the dark mode toggle, the backend address, a CSV export and a demo reset.
+**Citizen portal** (<http://localhost:8501/?view=citizen>): a member of the
+public writes a message and gets a confirmation with a reference number such as
+`HF-000123`. They never see the AI's assessment.
+
+**Staff portal** (<http://localhost:8501/?view=staff>):
+
+| Page             | Purpose                                                                                   |
+|------------------|-------------------------------------------------------------------------------------------|
+| **Review queue** | Cases awaiting a human, most urgent first. Case details, AI result, confirm or override    |
+| **Batch upload** | Upload a CSV of messages and watch live progress as each one is classified                 |
+| **Dashboard**    | Counts by urgency, category, review status and analysis engine                             |
+
+The same reference number appears in both portals. The staff **Settings** button
+holds the dark mode toggle, the backend address, a CSV export and a demo reset.
 
 ---
 
@@ -178,16 +187,19 @@ streamlit run app.py
 ```
 
 The app opens at <http://localhost:8501>. Both terminals must stay
-running. The top right of the page should read *Service online*.
+running. It opens on the citizen portal; choose **Staff portal** in the top
+right, which should read *Service online*.
 
 ### Try it
 
-Paste this into **Triage a message**:
+Send this from the citizen portal:
 
 > My electricity was disconnected this morning and my insulin has to stay
 > refrigerated. I don't know what to do.
 
-Expected: `Critical`, classified by `OpenAI`, flagged for human review.
+Expected: a confirmation with a reference number. In the staff portal the same
+reference is at the top of the **Review queue**: `Critical`, classified by
+`OpenAI`, awaiting human review.
 
 ### Troubleshooting
 

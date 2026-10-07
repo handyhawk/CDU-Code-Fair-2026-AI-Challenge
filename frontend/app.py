@@ -1,7 +1,11 @@
 """
 HumanFirst AI - frontend (Streamlit)
 
-A calm, task-first staff portal for the triage backend, in the spirit of
+Two experiences in one app, chosen with ?view=citizen (default) or ?view=staff:
+  * Citizen portal - send a message, get a confirmation and a reference number. No AI detail.
+  * Staff portal   - review queue with case details and AI information, confirm/override,
+                     batch upload and dashboard.
+A calm, task-first interface for the triage backend, in the spirit of
 public-service sites such as my.gov.au and GOV.UK: plain text, simple tables,
 one main action per screen, and status that never relies on colour alone.
 
@@ -42,22 +46,6 @@ CATEGORIES = [
     "General Enquiries",
 ]
 
-EXAMPLES = {
-    "Power cut + insulin": (
-        "My electricity was disconnected this morning and my insulin has to "
-        "stay refrigerated. I don't know what to do."
-    ),
-    "Court deadline": (
-        "I have a court hearing in three days and I'm still waiting for the "
-        "documents I need from the department."
-    ),
-    "Routine enquiry": "Can someone confirm the opening hours for the service centre?",
-    "Dramatic wording, routine": (
-        "URGENT!!! I forgot my online portal password and I have zero memory "
-        "of what I set it to \U0001F602"
-    ),
-}
-
 # Drafts only - never sent automatically.
 ACK_TEMPLATES = {
     "Critical": (
@@ -91,7 +79,7 @@ LIGHT_VARS = """
   --hf-high:#c77700; --hf-high-bg:#fdf1dc; --hf-high-ink:#7a4b00; --hf-high-line:#ecc88a;
   --hf-norm:#3f7d5a; --hf-norm-bg:#e7f1ea; --hf-norm-ink:#1f5a35; --hf-norm-line:#a9cdb6;
   --hf-info-bg:#eef4fa; --hf-info-line:#c3d4e5; --hf-info-ink:#26415d;
-  --hf-chip-line:#cfd6dc; --hf-openai-ink:#12304f; --hf-disabled:#b8c3cf; --hf-sel:#eef4fa;
+  --hf-chip-line:#cfd6dc; --hf-panel:#1f6b45; --hf-openai-ink:#12304f; --hf-disabled:#b8c3cf; --hf-sel:#eef4fa;
 """
 
 DARK_VARS = """
@@ -104,7 +92,7 @@ DARK_VARS = """
   --hf-high:#f0a43a; --hf-high-bg:#3a2a12; --hf-high-ink:#ffd08a; --hf-high-line:#7a5418;
   --hf-norm:#5fbf86; --hf-norm-bg:#15301f; --hf-norm-ink:#a6e3bd; --hf-norm-line:#2e6a45;
   --hf-info-bg:#15263a; --hf-info-line:#2c4a6b; --hf-info-ink:#b9d3ee;
-  --hf-chip-line:#34465a; --hf-openai-ink:#b9d6f5; --hf-disabled:#3a4756; --hf-sel:#17283a;
+  --hf-chip-line:#34465a; --hf-panel:#1e5c3d; --hf-openai-ink:#b9d6f5; --hf-disabled:#3a4756; --hf-sel:#17283a;
 """
 
 CSS = """
@@ -198,6 +186,16 @@ h3{font-size:1.15rem !important; margin-top:.2rem;}
 .hf-record.over{border-color:var(--hf-navy-2);}
 .hf-record .meta{font-size:.82rem; color:var(--hf-muted); margin-top:4px;}
 
+/* citizen portal: one narrow, readable column */
+.st-key-citizen{max-width:680px;}
+.hf-notice{border-left:5px solid var(--hf-crit); background:var(--hf-sunken); padding:12px 16px; margin:0 0 22px;
+  font-size:1rem; color:var(--hf-ink);}
+.hf-confirm{background:var(--hf-panel); padding:30px 28px 28px; margin:34px 0 26px; text-align:center;}
+.stApp .hf-confirm, .stApp .hf-confirm *{color:#fff !important;}
+.hf-confirm h1{font-size:2.1rem !important; margin:0 0 14px !important; padding:0 !important;}
+.hf-confirm .k{font-size:1.05rem; opacity:.92;}
+.hf-confirm .ref{font-size:1.9rem; font-weight:700; letter-spacing:.04em; margin-top:4px;}
+
 /* tables */
 .hf-table-wrap{border:1px solid var(--hf-line); background:var(--hf-card); max-height:340px; overflow:auto;}
 table.hf-table{border-collapse:collapse; width:100%; font-size:.9rem; table-layout:fixed;}
@@ -208,7 +206,7 @@ table.hf-table td{padding:10px 12px; border-bottom:1px solid var(--hf-line-2); v
 table.hf-table tr:last-child td{border-bottom:none;}
 table.hf-table tr.sel td{background:var(--hf-sel);}
 table.hf-table tr.sel td:first-child{box-shadow:inset 4px 0 0 var(--hf-navy-2);}
-table.hf-table th:nth-child(1){width:58px;} table.hf-table th:nth-child(2){width:112px;}
+table.hf-table th:nth-child(1){width:118px;} table.hf-table th:nth-child(2){width:112px;}
 table.hf-table th:nth-child(4){width:92px;} table.hf-table th:nth-child(5){width:112px;}
 table.hf-table th:nth-child(6){width:250px;}
 td.hf-id, td.hf-age, td.hf-eng{color:var(--hf-muted) !important;}
@@ -268,7 +266,9 @@ div[role="radiogroup"]{gap:8px;}
 .st-key-settings .hf-status, .st-key-settings .hf-status *{color:#fff !important; font-size:.88rem; white-space:nowrap;}
 .st-key-settings [data-testid="stMarkdownContainer"], .st-key-settings [data-testid="stMarkdownContainer"] p{margin:0 !important;}
 .st-key-settings [data-testid="stMarkdown"], .st-key-settings .stElementContainer{margin:0 !important;}
-@media (max-width:600px){.st-key-settings .stElementContainer:has(.hf-status){display:none !important;}}
+.st-key-to_citizen_menu{display:none !important;}
+@media (max-width:600px){.st-key-settings .stElementContainer:has(.hf-status), .st-key-to_citizen{display:none !important;}
+  .st-key-to_citizen_menu{display:block !important;}}
 [data-testid="stSidebar"], [data-testid="stExpandSidebarButton"]{display:none !important;}
 </style>
 """
@@ -422,6 +422,14 @@ def time_ago(iso_timestamp) -> str:
 def urgency_badge(urgency: str, large: bool = False) -> str:
     css = URGENCY_CLASS.get(urgency, "norm")
     return f'<span class="hf-badge {css}{" lg" if large else ""}">{esc(urgency)}</span>'
+
+
+def ref(case_id) -> str:
+    """Reference number shown to citizens and staff alike, e.g. HF-000123."""
+    try:
+        return f"HF-{int(case_id):06d}"
+    except (TypeError, ValueError):
+        return "HF-??????"
 
 
 def engine_name(case: dict) -> str:
@@ -611,12 +619,12 @@ def service_status(health) -> str:
     return '<span class="hf-dot ok"></span>Service online'
 
 
-def render_header(health):
-    """Masthead band with the service name. Status and Settings sit on top of its right end (see .st-key-settings)."""
+def render_header(subtitle: str):
+    """Masthead band with the service name. The controls on its right end are placed by .st-key-settings."""
     st.markdown(
         '<div class="hf-mast hf-bleed"><div class="in">'
         '<div class="hf-brand"><div class="hf-mark">HF</div><div><div class="t">HumanFirst AI</div>'
-        '<div class="s">Inbox triage service</div></div></div>'
+        f'<div class="s">{esc(subtitle)}</div></div></div>'
         "</div></div>",
         unsafe_allow_html=True,
     )
@@ -663,7 +671,7 @@ def render_case(case: dict, show_message: bool = True):
     st.markdown(
         f'<div class="hf-case {URGENCY_CLASS.get(urgency, "norm")}">'
         f'<div class="hf-top">{urgency_badge(urgency, True)}<span class="hf-st {state_css}">{state_text}</span></div>'
-        f'<div class="hf-meta">Case #{esc(case.get("id"))} &middot; Received {esc(fmt_time(case.get("created_at")))}</div>'
+        f'<div class="hf-meta">{ref(case.get("id"))} &middot; Received {esc(fmt_time(case.get("created_at")))}</div>'
         f'{quote}<dl class="hf-dl">{facts}</dl>{notes}</div>',
         unsafe_allow_html=True,
     )
@@ -688,13 +696,13 @@ def render_table(cases: list, limit: int = 60, selected_id=None):
             urgency += f'<div class="hf-was">AI: {esc(case.get("urgency"))}</div>'
         selected = ' class="sel"' if case.get("id") == selected_id else ""
         rows += (
-            f'<tr{selected}><td class="hf-id">#{esc(case.get("id"))}</td><td>{urgency}</td>'
+            f'<tr{selected}><td class="hf-id">{ref(case.get("id"))}</td><td>{urgency}</td>'
             f'<td title="{esc(case.get("message"))}">{esc(case.get("message"))}</td>'
             f'<td class="hf-age" title="{esc(fmt_time(case.get("created_at")))}">{esc(time_ago(case.get("created_at")))}</td>'
             f'<td class="hf-eng">{engine_name(case)}</td><td>{status_cell(case)}</td></tr>'
         )
     st.markdown(
-        '<div class="hf-table-wrap"><table class="hf-table"><thead><tr><th>Case</th><th>Urgency</th>'
+        '<div class="hf-table-wrap"><table class="hf-table"><thead><tr><th>Reference</th><th>Urgency</th>'
         "<th>Message</th><th>Received</th><th>Analysed by</th><th>Status</th>"
         f"</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True,
@@ -776,7 +784,7 @@ def render_review(case: dict, prefix: str):
                     json={"human_urgency": final, "human_notes": notes.strip()},
                 )
                 verb = "overridden to" if final != ai_urgency else "confirmed as"
-                st.session_state["flash"] = f"Case #{updated['id']} {verb} {final}."
+                st.session_state["flash"] = f"{ref(updated['id'])} {verb} {final}."
                 if st.session_state.get("last_result") and st.session_state["last_result"].get("id") == case_id:
                     st.session_state["last_result"] = updated
                 st.rerun()
@@ -837,7 +845,8 @@ for key, default in {
     "last_result": None,
     "last_error": None,
     "last_batch": None,
-    "message_input": "",
+    "citizen_ref": None,
+    "citizen_error": None,
     "flash": None,
 }.items():
     st.session_state.setdefault(key, default)
@@ -856,6 +865,8 @@ def render_settings():
             "Export all cases (CSV)", data=cases_to_csv(cases), disabled=not cases, width="stretch",
             file_name=f"humanfirst_cases_{datetime.now():%Y%m%d_%H%M%S}.csv", mime="text/csv",
         )
+        # Shown on phones only, where the masthead has no room for the "Citizen portal" button.
+        st.button("Citizen portal", key="to_citizen_menu", on_click=switch_view, args=("citizen",), width="stretch")
         with st.expander("Reset demo data"):
             st.caption("Permanently deletes every stored case.")
             sure = st.checkbox("I understand this cannot be undone")
@@ -868,100 +879,128 @@ def render_settings():
                     st.error(explain_error(exc))
 
 
-health = get_health()
-cases, cases_error = get_cases(health)
+def _view_from_url() -> str:
+    view = st.query_params.get("view", "citizen")
+    return view if view in ("citizen", "staff") else "citizen"
 
-PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
+
+def switch_view(view: str):
+    st.session_state["view"] = view
+    st.query_params["view"] = view
+
+
+st.session_state.setdefault("view", _view_from_url())
+view = st.session_state["view"]
+
+health = get_health()
+# Citizens never see the case list, so only the staff portal loads it.
+cases, cases_error = get_cases(health) if view == "staff" else ([], None)
+
+PAGES = ["Review queue", "Batch upload", "Dashboard"]
+if st.session_state.get("page") not in PAGES:  # e.g. a page that no longer exists
+    st.session_state.pop("page", None)
 # Bumping this number gives the queue filters fresh keys, i.e. resets them to their defaults.
 st.session_state.setdefault("q_filters_version", 0)
 
 awaiting_all = sort_queue([c for c in cases if needs_review(c)])
 
-render_header(health)
-# Status and Settings share one row, so the button can never cover the status text.
-with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="medium", width="content"):
-    st.markdown(f'<span class="hf-status">{service_status(health)}</span>', unsafe_allow_html=True, width="content")
-    render_settings()
+render_header("Contact us" if view == "citizen" else "Staff portal")
+# Controls on the right of the masthead share one row, so they can never cover each other.
+with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="small", width="content"):
+    if view == "citizen":
+        st.button("Staff portal", key="to_staff", on_click=switch_view, args=("staff",), icon=":material/badge:")
+    else:
+        st.markdown(f'<span class="hf-status">{service_status(health)}</span>', unsafe_allow_html=True,
+                    width="content")
+        st.button("Citizen portal", key="to_citizen", on_click=switch_view, args=("citizen",),
+                  icon=":material/person:")
+        render_settings()
 
-# Top navigation (a styled radio, so the chosen section survives the reruns after saving a decision).
-page = st.radio(
-    "Section", PAGES, horizontal=True, label_visibility="collapsed", key="page",
-    format_func=lambda name: name + (f" ({len(awaiting_all)})" if name == PAGES[1] and awaiting_all else ""),
-)
 
-if st.session_state["flash"]:
-    st.success(st.session_state["flash"])
-    st.session_state["flash"] = None
+# ---- Citizen portal -----------------------------------------------------------
+def citizen_portal():
+    with st.container(key="citizen"):
+        reference = st.session_state.get("citizen_ref")
+        if reference:
+            st.markdown(
+                '<div class="hf-confirm"><h1>Message received</h1>'
+                f'<div class="k">Your reference number</div><div class="ref">{esc(reference)}</div></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown("### What happens next")
+            st.markdown(
+                "A staff member will read your message and contact you. Messages about safety, health "
+                "or housing are looked at first.\n\nKeep your reference number. Quote it if you contact us "
+                "about this message."
+            )
+            st.markdown(
+                '<div class="hf-notice">If you or someone else is in immediate danger, call <b>000</b>.</div>',
+                unsafe_allow_html=True,
+            )
 
-if health is None:
-    st.error(
-        f"The backend at {backend_base()} is not reachable. "
-        "Start it with `python app.py` in the backend folder, or change the address in Settings."
+            def send_another():
+                st.session_state.update(citizen_ref=None, citizen_msg="", citizen_error=None)
+
+            st.button("Send another message", on_click=send_another)
+            return
+
+        render_intro("Send us a message", "Tell us what you need help with. A staff member reads every message.")
+        st.markdown(
+            '<div class="hf-notice">If you or someone else is in immediate danger, call <b>000</b>.</div>',
+            unsafe_allow_html=True,
+        )
+        if health is None:
+            st.warning("This service is unavailable right now. Please try again later.")
+        message = st.text_area("Your message", height=220, key="citizen_msg",
+                               placeholder="Describe your situation and what you need")
+        if st.session_state.get("citizen_error"):
+            st.error(st.session_state["citizen_error"])
+        # Not disabled while the box looks empty: Streamlit only sends typed text when the box loses focus.
+        if st.button("Send message", type="primary", disabled=health is None):
+            if not message.strip():
+                st.session_state["citizen_error"] = "Enter your message before sending."
+                st.rerun()
+            with st.spinner("Sending..."):
+                try:
+                    case = api("POST", "/triage", timeout=120, json={"message": message})
+                    st.session_state.update(citizen_ref=ref(case.get("id")), citizen_error=None)
+                except requests.exceptions.RequestException:
+                    st.session_state["citizen_error"] = (
+                        "Your message could not be sent. Please try again in a few minutes."
+                    )
+            st.rerun()
+
+
+if view == "citizen":
+    citizen_portal()
+    page = None
+else:
+    # Top navigation (a styled radio, so the chosen section survives the reruns after saving a decision).
+    page = st.radio(
+        "Section", PAGES, horizontal=True, label_visibility="collapsed", key="page",
+        format_func=lambda name: name + (f" ({len(awaiting_all)})" if name == PAGES[0] and awaiting_all else ""),
     )
 
+    if st.session_state["flash"]:
+        st.success(st.session_state["flash"])
+        st.session_state["flash"] = None
 
-# ---- Triage ---------------------------------------------------------------
-if page == PAGES[0]:
-    render_intro("Triage a message")
-    left, right = st.columns([2, 3], gap="large")
-
-    def use_example():
-        choice = st.session_state.get("example_choice")
-        if choice in EXAMPLES:
-            st.session_state["message_input"] = EXAMPLES[choice]
-
-    def clear_message():
-        st.session_state.update(message_input="", last_result=None, last_error=None,
-                                example_choice="Choose an example...")
-
-    with left:
-        message = st.text_area(
-            "Message", height=200, key="message_input",
-            placeholder="Paste or type the message to analyse",
-        )
-        analyse, clear = st.columns([3, 2])
-        # Not disabled while the box looks empty: Streamlit only sends typed text when the box loses focus,
-        # so a disabled button would ignore the first click. Check on click instead.
-        if analyse.button("Analyse message", type="primary", disabled=health is None, width="stretch"):
-            if not message.strip():
-                st.session_state.update(last_error="Type or paste a message to analyse.", last_result=None)
-                st.rerun()
-            with st.spinner("Analysing..."):
-                try:
-                    st.session_state["last_result"] = api("POST", "/triage", timeout=120, json={"message": message})
-                    st.session_state["last_error"] = None
-                except requests.exceptions.RequestException as exc:
-                    st.session_state["last_error"] = explain_error(exc)
-            st.rerun()
-        clear.button("Clear", on_click=clear_message, width="stretch")
-        st.selectbox(
-            "Try an example",
-            ["Choose an example..."] + list(EXAMPLES),
-            key="example_choice",
-            on_change=use_example,
+    if health is None:
+        st.error(
+            f"The backend at {backend_base()} is not reachable. "
+            "Start it with `python app.py` in the backend folder, or change the address in Settings."
         )
 
-    with right:
-        if st.session_state["last_error"]:
-            st.error(st.session_state["last_error"])
-        result = st.session_state["last_result"]
-        if result:
-            # show the freshest stored copy (picks up a saved human decision)
-            result = next((c for c in cases if c.get("id") == result.get("id")), result)
-            render_case(result, show_message=False)
-            render_review(result, "triage")
-        elif not st.session_state["last_error"]:
-            render_empty("The assessment will appear here.")
 
 # ---- Review queue -----------------------------------------------------------
-if page == PAGES[1]:
+if page == PAGES[0]:
     render_intro("Review queue")
     if cases_error == "offline":
         render_empty("Cases will appear here when the backend is back online.")
     elif cases_error:
         st.error(cases_error)
     elif not cases:
-        render_empty("No cases yet. Triage a message or upload a batch to start the queue.")
+        render_empty("No cases yet. Messages sent through the citizen portal or a batch upload will appear here.")
     else:
         v = st.session_state["q_filters_version"]
         counts = {
@@ -997,13 +1036,13 @@ if page == PAGES[1]:
             st.write("")
             chosen = st.selectbox(
                 "Case to review", list(by_id), key=case_key,
-                format_func=lambda i: f"#{i} · {current_urgency(by_id[i])} · {(by_id[i].get('message') or '')[:70]}",
+                format_func=lambda i: f"{ref(i)} · {current_urgency(by_id[i])} · {(by_id[i].get('message') or '')[:70]}",
             )
             render_case(by_id[chosen])
             render_review(by_id[chosen], "queue")
 
 # ---- Batch -----------------------------------------------------------------
-if page == PAGES[2]:
+if page == PAGES[1]:
     render_intro("Batch upload", "Upload a CSV with a message column. Every row is analysed and saved.")
     uploaded = st.file_uploader("CSV file", type=["csv"], label_visibility="collapsed")
     messages, read_error = read_batch_messages(uploaded) if uploaded else ([], None)
@@ -1047,7 +1086,7 @@ if page == PAGES[2]:
             render_table(sort_queue(results))
 
 # ---- Dashboard ---------------------------------------------------------------
-if page == PAGES[3]:
+if page == PAGES[2]:
     render_intro("Dashboard")
     if cases_error == "offline":
         render_empty("Figures will appear here when the backend is back online.")
@@ -1087,8 +1126,8 @@ if page == PAGES[3]:
 
 st.markdown(
     '<div class="hf-foot hf-bleed"><div class="in">'
-    "HumanFirst AI &middot; Prototype for the CDU IT Code Fair 2026 &middot; Synthetic messages only. "
-    "The AI recommends; staff decide."
-    "</div></div>",
+    "HumanFirst AI &middot; Prototype for the CDU IT Code Fair 2026 &middot; Synthetic messages only."
+    + (" The AI recommends; staff decide." if view == "staff" else "")
+    + "</div></div>",
     unsafe_allow_html=True,
 )
