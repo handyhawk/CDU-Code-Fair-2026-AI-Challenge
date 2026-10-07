@@ -176,8 +176,8 @@ h3{font-size:1.15rem !important; margin-top:.2rem;}
 .hf-st.done::before{background:var(--hf-norm);}
 .hf-st.over::before{background:var(--hf-navy-2);}
 .hf-st.none{color:var(--hf-muted); font-weight:400;} .hf-st.none::before{background:var(--hf-line);}
-.hf-tag{margin-left:10px; font-size:.8rem; font-weight:600; color:var(--hf-high-ink);}
-.hf-warn{color:var(--hf-high-ink); font-weight:600;}
+.stApp .hf-tag, .hf-tag{margin-left:10px; font-size:.8rem; font-weight:600; color:var(--hf-high-ink);}
+.stApp .hf-warn, .hf-warn{color:var(--hf-high-ink); font-weight:600;}
 
 /* case detail */
 .hf-case{border:1px solid var(--hf-line); border-left:5px solid var(--hf-line); padding:18px 20px; margin-bottom:18px;
@@ -316,6 +316,15 @@ body{background:var(--hf-bg) !important; color:var(--hf-ink);}
 [data-testid="stSelectboxVirtualDropdown"] [role="option"] > div{background-color:transparent;}
 [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover > *,
 [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] > *{background:var(--hf-head) !important;}
+
+/* Streamlit's own dialogs (e.g. "Connection error" when the app server stops) sit outside .stApp */
+[data-testid="stDialog"]{background:rgba(5,10,16,.6) !important;}
+[data-testid="stDialog"] > div{background:var(--hf-card) !important; border:1px solid var(--hf-line) !important;}
+[data-testid="stDialog"] *{color:var(--hf-ink) !important;}
+[data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3,
+[data-testid="stDialog"] [role="dialog"] > div:first-child *{color:var(--hf-heading) !important;}
+[data-testid="stDialog"] pre, [data-testid="stDialog"] code, [data-testid="stErrorCodeBlock"]{background:var(--hf-sunken) !important;}
+[data-testid="stDialog"] svg{fill:var(--hf-ink) !important; color:var(--hf-ink) !important;}
 
 /* settings pop-up is rendered outside the app container, so theme its inputs directly */
 [data-testid="stPopoverBody"] input{background:var(--hf-sunken) !important; color:var(--hf-ink) !important;
@@ -464,10 +473,16 @@ def cases_to_csv(cases: list) -> str:
 # Backend calls
 # ---------------------------------------------------------------------------
 
+def backend_base() -> str:
+    """The backend address from Settings, tidied: blank -> default, missing scheme -> http://."""
+    url = (st.session_state.get("backend_url") or "").strip() or DEFAULT_BACKEND_URL
+    if "://" not in url:
+        url = "http://" + url
+    return url.rstrip("/")
+
+
 def api(method: str, path: str, timeout: int = 30, **kwargs):
-    response = requests.request(
-        method, f"{st.session_state['backend_url'].rstrip('/')}{path}", timeout=timeout, **kwargs
-    )
+    response = requests.request(method, f"{backend_base()}{path}", timeout=timeout, **kwargs)
     response.raise_for_status()
     return response.json()
 
@@ -475,23 +490,34 @@ def api(method: str, path: str, timeout: int = 30, **kwargs):
 def get_health():
     try:
         return api("GET", "/health", timeout=5)
-    except requests.exceptions.RequestException:
+    except (requests.exceptions.RequestException, ValueError):
         return None
 
 
-def get_cases():
+def get_cases(health):
+    # Skip the second call when the backend is already known to be down, so the page stays quick.
+    if health is None:
+        return [], "offline"
     try:
         return api("GET", "/cases", timeout=15)["cases"], None
-    except requests.exceptions.RequestException as exc:
-        return [], str(exc)
+    except (requests.exceptions.RequestException, ValueError, KeyError) as exc:
+        return [], explain_error(exc)
 
 
 def explain_error(exc: Exception) -> str:
     if isinstance(exc, requests.exceptions.ConnectionError):
-        return f"Could not reach the backend at {st.session_state['backend_url']}. Is app.py running?"
+        return f"Could not reach the backend at {backend_base()}. Check that it is running."
     if isinstance(exc, requests.exceptions.Timeout):
         return "The backend took too long to respond. Try again."
-    return f"The backend returned an error: {exc}"
+    if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
+        try:
+            detail = exc.response.json().get("error")
+        except ValueError:
+            detail = None
+        return f"The backend could not complete this request ({exc.response.status_code}). {detail or ''}".strip()
+    if isinstance(exc, requests.exceptions.RequestException):
+        return f"The backend address {backend_base()} is not valid. Check it in Settings."
+    return "The backend sent a response the app could not read."
 
 
 # Same column names the backend accepts in data_loader.COLUMN_ALIASES.
@@ -543,9 +569,8 @@ def run_batch(messages):
         try:
             results.append(api("POST", "/triage", timeout=120, json={"message": text}))
         except requests.exceptions.ConnectionError as exc:
-            # Backend is down: stop instead of failing every remaining row.
-            failed.append((row, text, explain_error(exc)))
-            skipped = len(messages) - i
+            # Backend is down: stop instead of failing every remaining row. This row was not saved either.
+            skipped = len(messages) - i + 1
             break
         except requests.exceptions.RequestException as exc:
             failed.append((row, text, explain_error(exc)))
@@ -782,8 +807,13 @@ def _theme_from_url() -> bool:
     return st.query_params.get("theme", "dark") != "light"
 
 
-def _remember_theme():
+def _apply_theme_toggle():
+    st.session_state["dark_mode"] = st.session_state["dark_mode_toggle"]
     st.query_params["theme"] = "dark" if st.session_state["dark_mode"] else "light"
+
+
+def _apply_backend_url():
+    st.session_state["backend_url"] = st.session_state["backend_url_input"]
 
 
 st.session_state.setdefault("dark_mode", _theme_from_url())
@@ -803,8 +833,12 @@ for key, default in {
 def render_settings():
     """Small, out-of-the-way settings: theme, backend address, export and demo reset."""
     with st.popover("Settings", icon=":material/settings:", width="content"):
-        st.toggle("Dark mode", key="dark_mode", on_change=_remember_theme)
-        st.text_input("Backend address", key="backend_url")
+        # The pop-up's contents are rebuilt whenever it opens, so each control is given its current
+        # value explicitly; "dark_mode" and "backend_url" are the source of truth, not the widgets.
+        st.toggle("Dark mode", value=st.session_state["dark_mode"], key="dark_mode_toggle",
+                  on_change=_apply_theme_toggle)
+        st.text_input("Backend address", value=st.session_state["backend_url"], key="backend_url_input",
+                      on_change=_apply_backend_url)
         st.download_button(
             "Export all cases (CSV)", data=cases_to_csv(cases), disabled=not cases, width="stretch",
             file_name=f"humanfirst_cases_{datetime.now():%Y%m%d_%H%M%S}.csv", mime="text/csv",
@@ -822,7 +856,7 @@ def render_settings():
 
 
 health = get_health()
-cases, cases_error = get_cases()
+cases, cases_error = get_cases(health)
 
 PAGES = ["Triage a message", "Review queue", "Batch upload", "Dashboard"]
 # Bumping this number gives the queue filters fresh keys, i.e. resets them to their defaults.
@@ -843,13 +877,10 @@ page = st.radio(
 if st.session_state["flash"]:
     st.success(st.session_state["flash"])
     st.session_state["flash"] = None
-if st.session_state.get("flash_warning"):
-    st.warning(st.session_state["flash_warning"])
-    st.session_state["flash_warning"] = None
 
 if health is None:
     st.error(
-        f"The backend at {st.session_state['backend_url']} is not reachable. "
+        f"The backend at {backend_base()} is not reachable. "
         "Start it with `python app.py` in the backend folder, or change the address in Settings."
     )
 
@@ -874,10 +905,10 @@ if page == PAGES[0]:
             placeholder="Paste or type the message to analyse",
         )
         analyse, clear = st.columns([3, 2])
-        if analyse.button("Analyse message", type="primary", disabled=not message.strip(), width="stretch"):
+        if analyse.button("Analyse message", type="primary", disabled=not message.strip() or health is None, width="stretch"):
             with st.spinner("Analysing..."):
                 try:
-                    st.session_state["last_result"] = api("POST", "/triage", json={"message": message})
+                    st.session_state["last_result"] = api("POST", "/triage", timeout=120, json={"message": message})
                     st.session_state["last_error"] = None
                 except requests.exceptions.RequestException as exc:
                     st.session_state["last_error"] = explain_error(exc)
@@ -905,8 +936,10 @@ if page == PAGES[0]:
 # ---- Review queue -----------------------------------------------------------
 if page == PAGES[1]:
     render_intro("Review queue")
-    if cases_error:
-        st.error(f"Could not load cases. {cases_error}")
+    if cases_error == "offline":
+        render_empty("Cases will appear here when the backend is back online.")
+    elif cases_error:
+        st.error(cases_error)
     elif not cases:
         render_empty("No cases yet. Triage a message or upload a batch to start the queue.")
     else:
@@ -958,15 +991,11 @@ if page == PAGES[2]:
         st.error(read_error)
     elif uploaded:
         st.caption(f"{len(messages)} message{'s' if len(messages) != 1 else ''} found in {uploaded.name}.")
-    if messages and st.button("Analyse batch", type="primary"):
+    if messages and st.button("Analyse batch", type="primary", disabled=health is None):
         st.session_state["last_batch"] = run_batch(messages)
         last = st.session_state["last_batch"]
-        done, problems = len(last["results"]), len(last["failed"]) + last["skipped"]
-        text = f"Analysed and saved {done} of {len(messages)} messages."
-        if problems:
-            st.session_state["flash_warning"] = text + " Some rows were not analysed; see the results below."
-        else:
-            st.session_state["flash"] = text
+        if not last["failed"] and not last["skipped"]:
+            st.session_state["flash"] = f"Analysed and saved {len(last['results'])} of {len(messages)} messages."
         st.rerun()
 
     batch = st.session_state["last_batch"]
@@ -974,10 +1003,11 @@ if page == PAGES[2]:
         results = batch.get("results", [])
         st.markdown("### Results")
         if batch.get("skipped"):
-            st.warning(
-                f"The backend stopped responding, so the last {batch['skipped']} row(s) were not sent. "
-                "Restart the backend and upload the file again; saved rows will be analysed a second time."
-            )
+            n_saved, n_left = len(results), batch["skipped"]
+            saved = (f"The first {n_saved} {'row was' if n_saved == 1 else 'rows were'} saved; "
+                     "remove them from the file before uploading it again." if n_saved else "Nothing was saved.")
+            st.warning(f"The backend stopped responding, so {n_left} {'row was' if n_left == 1 else 'rows were'} "
+                       f"not analysed. {saved}")
         if batch.get("failed"):
             with st.expander(f"{len(batch['failed'])} message(s) could not be analysed"):
                 for row, text, reason in batch["failed"]:
@@ -992,14 +1022,17 @@ if page == PAGES[2]:
         provisional_n = sum(bool(r.get("provisional")) for r in results)
         if provisional_n:
             stats.append(("Provisional", provisional_n, ""))
-        render_stats(stats)
-        render_table(sort_queue(results))
+        if results:
+            render_stats(stats)
+            render_table(sort_queue(results))
 
 # ---- Dashboard ---------------------------------------------------------------
 if page == PAGES[3]:
     render_intro("Dashboard")
-    if cases_error:
-        st.error(f"Could not load cases. {cases_error}")
+    if cases_error == "offline":
+        render_empty("Figures will appear here when the backend is back online.")
+    elif cases_error:
+        st.error(cases_error)
     elif not cases:
         render_empty("No data yet. Figures appear as messages are analysed.")
     else:
