@@ -283,7 +283,8 @@ div[role="radiogroup"]{gap:8px;}
   font-family:'Public Sans', 'Segoe UI', Arial, sans-serif;}
 
 /* queue filters greyed out while a reference search is active */
-[data-testid="stRadio"]:has(input:disabled) [data-testid="stRadioOption"]{opacity:.45; cursor:not-allowed;}
+[data-testid="stRadio"]:has(input:disabled) [data-testid="stRadioOption"],
+[data-testid="stRadio"] label[data-baseweb="radio"]:has(input:disabled){opacity:.45; cursor:not-allowed;}
 [data-testid="stSelectbox"]:has(input:disabled){opacity:.45;}
 /* "Clear search": a quiet text button */
 button[kind="tertiary"]{color:var(--hf-navy) !important; font-weight:600; padding:0 !important; min-height:0 !important;}
@@ -330,6 +331,8 @@ DARK_WIDGET_CSS = """
 [data-baseweb="select"] *{color:var(--hf-ink) !important;}
 [data-baseweb="select"] svg{fill:var(--hf-muted) !important;}
 [data-baseweb="popover"] ul, [data-baseweb="popover"] [role="listbox"], [data-baseweb="menu"]{background:var(--hf-card) !important;}
+/* Streamlit 1.5x: the dropdown's outer layers are painted with the light theme */
+[data-baseweb="popover"], [data-baseweb="popover"] > div{background:var(--hf-card) !important;}
 [data-baseweb="popover"] li{background:var(--hf-card) !important; color:var(--hf-ink) !important;}
 [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"]{background:var(--hf-head) !important;}
 /* Streamlit 1.64 widget markup */
@@ -390,7 +393,15 @@ body{background:var(--hf-bg) !important; color:var(--hf-ink);}
 [data-testid="stPopoverBody"] [data-testid="stCaptionContainer"],
 [data-testid="stPopoverBody"] [data-testid="stExpander"],
 [data-testid="stPopoverBody"] [data-testid="stExpander"] details > div,
-[data-testid="stPopoverBody"] label{background:transparent !important;}
+[data-testid="stPopoverBody"] label,
+/* Streamlit 1.5x: an unnamed wrapper directly inside the pop-up body is painted with the light theme */
+[data-testid="stPopoverBody"] > div{background:transparent !important;}
+/* Streamlit 1.5x: the wrapper around a text field's icon (the search magnifier) keeps a light background */
+[data-testid="stTextInputRootElement"] > div:not([data-baseweb]){background:transparent !important;}
+[data-testid="stTextInputIcon"], [data-testid="stTextInputIcon"] *{color:var(--hf-muted) !important;}
+/* Streamlit 1.5x checkbox markup: unticked box */
+label[data-baseweb="checkbox"]:not(:has(input:checked)) > span:first-child{background:var(--hf-sunken) !important;
+  border-color:var(--hf-input-line) !important;}
 [data-testid="stPopoverBody"] [data-testid="stWidgetLabel"] *, [data-testid="stPopoverBody"] label *{color:var(--hf-ink) !important;}
 [data-testid="stPopoverBody"] [data-testid="stCaptionContainer"] *{color:var(--hf-muted) !important;}
 
