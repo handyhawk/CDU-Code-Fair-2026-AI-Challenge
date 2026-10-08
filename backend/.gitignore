@@ -1,1 +1,6 @@
 .env
+backend/.env
+backend/data/cases.db
+__pycache__/
+*.pyc
+*.bak

@@ -12,13 +12,28 @@ urgent messages to a human fast.
 
 ## 1. How the system works
 
-```
-                 ┌─────────────────────────────┐
- message ──────► │  Flask backend (port 5000)  │ ──► saved as a "case" (SQLite)
- (typed or CSV)  │                             │              │
-                 │  1. OpenAI classifier       │              ▼
-                 │  2. Local ML fallback       │     Streamlit frontend (port 8501)
-                 └─────────────────────────────┘     triage · review · batch · dashboard
+```text
+Citizen message / CSV
+        │
+        ▼
+Flask backend
+        │
+        ▼
+OpenAI classifier
+        │
+        ├── if unavailable ──► Local ML fallback
+        │
+        ▼
+Independent Safety Engine
+        │
+        ▼
+SQLite case storage
+        │
+        ▼
+Staff review queue
+        │
+        ▼
+Human confirm / override
 ```
 
 ### What it produces for each message
@@ -29,19 +44,26 @@ urgent messages to a human fast.
 | **Category** | Health & Safety, Housing & Utilities, Financial Support, Licensing & Services, General Enquiries |
 | **Route**    | The team that should handle it. Usually the same as the category, but it can differ (a housing issue with a medical angle goes to Health & Safety) |
 | **Engine**   | `OpenAI` (primary) or `Local ML` (fallback)                                              |
+| **Safety**   | Independent Safety Engine check, including any escalation reason                            |
 
-### Two engines, one safety rule
+### Hybrid classification and independent safety layer
 
 1. **OpenAI is the primary classifier.** Each message is sent to
    `gpt-5-mini`, which returns a structured result (urgency, category,
    route and a one-sentence explanation). It does not return a calibrated
    probability, so the app shows confidence as **N/A** rather than
    inventing a number. Critical and High cases are escalated to a human.
-2. **A local model is the fallback.** If OpenAI cannot be reached (no
-   internet, quota used up, bad key, timeout), the backend uses a local
+2. **A local model is the fallback.** If OpenAI cannot be reached because of
+   internet, API-key, quota or service issues, the backend uses a local
    TF-IDF + logistic regression model trained on
-   `backend/data/HumanFirst_AI_30_Test_Messages.csv`. Its result is
-   marked **Provisional** and is **always sent to human review**.
+   `backend/data/HumanFirst_training_messages_v3.csv`. The v3 corpus contains
+   600 synthetic labelled messages. Fallback results are marked
+   **Provisional** and are **always sent to human review**.
+3. **The Safety Engine is independent of both classifiers.** After either
+   OpenAI or Local ML produces an urgency result, the Safety Engine checks the
+   original message for known high-risk circumstances and combinations. It can
+   raise urgency but never lower it. Safety findings and reasons are stored
+   with the case for staff review.
 
 ### Tone is not evidence
 
@@ -87,9 +109,9 @@ holds the dark mode toggle, the backend address, a CSV export and a demo reset.
 ### Requirements
 
 - Python 3.10 or newer
-- An OpenAI account with an API key (step 2 below)
-- Internet access (for OpenAI and for the interface font; the app still
-  works offline with the fallback font and the Local ML engine)
+- An OpenAI API key is recommended for the primary classifier
+- Internet access is required for the OpenAI path; without it, the application
+  continues using the Local ML fallback
 
 > **Windows tip:** keep the project in a plain folder such as
 > `C:\Dev\...`, not inside OneDrive. OneDrive syncing can corrupt files
@@ -102,15 +124,17 @@ git clone https://github.com/handyhawk/cdu-code-fair-2026-ai-challenge.git
 cd cdu-code-fair-2026-ai-challenge
 ```
 
-### Step 2: Get an OpenAI API key
+### Step 2: Configure the OpenAI API key (recommended)
 
 1. Sign in at <https://platform.openai.com>.
-2. Add a payment method and a few dollars of credit under **Billing**.
-   The API is billed separately from a ChatGPT subscription or just use a
-   free API key for testing.
-4. Open <https://platform.openai.com/api-keys> and choose
+2. Configure API billing if required for the account. The API is billed
+   separately from a ChatGPT subscription.
+3. Open <https://platform.openai.com/api-keys> and choose
    **Create new secret key**. Name it (for example `humanfirst-demo`).
-5. **Copy the key now.** It starts with `sk-` and is shown only once.
+4. Copy the key when it is created and store it securely.
+
+If no API key is configured, HumanFirst AI still starts and uses the Local ML
+fallback. Those results are marked **Provisional** and require human review.
 
 Treat the key like a password:
 
@@ -118,11 +142,11 @@ Treat the key like a password:
   logs. If it leaks, revoke it on the same page and create a new one.
 - Each team member should use their own key.
 
-### Step 3: Create the `.env` file
+### Step 3: Create the `.env` file for OpenAI
 
-The key goes in a file named `.env` **inside the `backend` folder**
-(next to `app.py`). The file is listed in `.gitignore`, so it is never
-pushed to GitHub.
+If the OpenAI primary classifier is being used, place the key in a file named
+`.env` **inside the `backend` folder** (next to `app.py`). The file should be
+excluded from Git so credentials are never committed.
 
 ```
 HumanFirst AI/
@@ -205,8 +229,7 @@ reference is at the top of the **Review queue**: `Critical`, classified by
 
 | Symptom                                                    | Cause and fix                                                                                   |
 |------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Backend crashes on start with `Missing credentials`        | `.env` is missing, in the wrong folder, or misnamed. It must be `backend/.env`, containing `OPENAI_API_KEY=...`. |
-| Every case shows **Local ML** and **Provisional**          | OpenAI call is failing. Check the backend terminal for `[OpenAI unavailable]`: usually an invalid key, no credit, or no internet. |
+| Every case shows **Local ML** and **Provisional**          | OpenAI is unavailable or no API key is configured. Check the backend terminal for `[OpenAI unavailable]`. |
 | Frontend says the backend is not reachable                 | Backend is not running, or the address in **Settings → Backend address** is wrong.                |
 | Changes to `.env` have no effect                           | Restart the backend. The key is read once at start-up.                                           |
 | Theme or font changes do not appear                        | Restart `streamlit run`. `.streamlit/config.toml` is read only at start-up.                      |
@@ -222,7 +245,7 @@ are most likely to change.
 
 | Variable         | Required | Meaning                          |
 |------------------|----------|----------------------------------|
-| `OPENAI_API_KEY` | Yes      | Key used for the primary classifier |
+| `OPENAI_API_KEY` | Optional | Enables the OpenAI primary classifier; without it the Local ML fallback is used |
 
 ### Backend settings
 
@@ -232,7 +255,7 @@ are most likely to change.
 | Classification rules          | `SYSTEM_PROMPT` in `openai_analyzer.py`                  | Defines Critical / High / Normal and the "tone is not evidence" rule  |
 | Categories and teams          | `Category` enum in `openai_analyzer.py`                  | Keep in step with `ESCALATION_MAP` and the training CSV               |
 | Fallback training data        | `DEFAULT_TRAINING_CSV` in `app.py`                       | A labelled CSV the Local ML model trains on at start-up               |
-| Server port and host          | `app.run(...)` at the bottom of `app.py`                 | Default `0.0.0.0:5000` with `debug=True`. For a demo or any shared network, use `host="127.0.0.1"` and `debug=False` |
+| Server port and host          | `app.run(...)` at the bottom of `app.py`                 | Default `127.0.0.1:5000` with `debug=False` |
 | Fallback escalation threshold | `ESCALATION_CONFIDENCE_THRESHOLD` in `urgency_analyzer.py` | Default `0.45`. Lower sends fewer low-confidence cases to a human     |
 | Risk keywords                 | `SUBSTANTIVE_RISK_KEYWORDS` in `urgency_analyzer.py`     | Real circumstances that may raise the fallback model's urgency        |
 | Attention markers             | `ATTENTION_MARKER_WORDS` in `urgency_analyzer.py`        | Shown to reviewers but never scored                                   |

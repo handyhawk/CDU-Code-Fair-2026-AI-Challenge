@@ -22,10 +22,6 @@ from openai_analyzer import (
 app = Flask(__name__)
 
 
-# ---------------------------------------------------------------------
-# Local ML fallback
-# ---------------------------------------------------------------------
-
 analyzer = UrgencyAnalyzer()
 
 
@@ -74,10 +70,6 @@ def _try_initial_training():
         )
 
 
-# ---------------------------------------------------------------------
-# Hybrid AI classification
-# ---------------------------------------------------------------------
-
 def analyse_with_fallback(
     message: str,
 ) -> dict:
@@ -114,9 +106,6 @@ def analyse_with_fallback(
             f"{type(exc).__name__}: {exc}"
         )
 
-        # -------------------------------------------------------------
-        # Local ML fallback
-        # -------------------------------------------------------------
 
         local_result = analyzer.analyze(
             message
@@ -130,8 +119,7 @@ def analyse_with_fallback(
             "provisional"
         ] = True
 
-        # A fallback result must ALWAYS
-        # be reviewed by a human.
+
         local_result[
             "escalate_to_human"
         ] = True
@@ -155,10 +143,6 @@ def analyse_with_fallback(
         return apply_safety(message, local_result)
 
 
-# ---------------------------------------------------------------------
-# Health endpoint
-# ---------------------------------------------------------------------
-
 @app.route(
     "/health",
     methods=["GET"],
@@ -177,10 +161,6 @@ def health():
         }
     )
 
-
-# ---------------------------------------------------------------------
-# Single-message triage
-# ---------------------------------------------------------------------
 
 @app.route(
     "/triage",
@@ -224,10 +204,6 @@ def triage():
 
     return jsonify(stored)
 
-
-# ---------------------------------------------------------------------
-# Train / retrain local fallback
-# ---------------------------------------------------------------------
 
 @app.route(
     "/train",
@@ -277,10 +253,6 @@ def train():
     finally:
         os.remove(tmp_path)
 
-
-# ---------------------------------------------------------------------
-# Batch analysis
-# ---------------------------------------------------------------------
 
 @app.route(
     "/analyze",
@@ -356,10 +328,6 @@ def analyze():
         os.remove(tmp_path)
 
 
-# ---------------------------------------------------------------------
-# Case filtering helper
-# ---------------------------------------------------------------------
-
 def _parse_escalate_param():
 
     raw = request.args.get(
@@ -378,10 +346,6 @@ def _parse_escalate_param():
         }
     )
 
-
-# ---------------------------------------------------------------------
-# Stored case queue
-# ---------------------------------------------------------------------
 
 @app.route(
     "/cases",
@@ -415,10 +379,6 @@ def list_cases():
     )
 
 
-# ---------------------------------------------------------------------
-# Case summary
-# ---------------------------------------------------------------------
-
 @app.route(
     "/cases/summary",
     methods=["GET"],
@@ -443,10 +403,6 @@ def cases_summary():
         )
     )
 
-
-# ---------------------------------------------------------------------
-# Human review
-# ---------------------------------------------------------------------
 
 @app.route(
     "/cases/<int:case_id>/review",
@@ -511,10 +467,6 @@ def review_case(case_id):
     return jsonify(updated)
 
 
-# ---------------------------------------------------------------------
-# Clear stored cases
-# ---------------------------------------------------------------------
-
 @app.route(
     "/cases",
     methods=["DELETE"],
@@ -532,10 +484,6 @@ def delete_all_cases():
     )
 
 
-# ---------------------------------------------------------------------
-# Start backend
-# ---------------------------------------------------------------------
-
 if __name__ == "__main__":
 
     database.init_db()
@@ -543,7 +491,7 @@ if __name__ == "__main__":
     _try_initial_training()
 
     app.run(
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=5000,
-        debug=True,
+        debug=False,
     )

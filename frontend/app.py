@@ -47,7 +47,7 @@ CATEGORIES = [
     "General Enquiries",
 ]
 
-# Drafts only - never sent automatically.
+
 ACK_TEMPLATES = {
     "Critical": (
         "Thank you for contacting us. Your message has been identified as "
@@ -64,12 +64,7 @@ ACK_TEMPLATES = {
     ),
 }
 
-# ---------------------------------------------------------------------------
-# Styling
-# ---------------------------------------------------------------------------
 
-# Colour tokens. Every colour in CSS below comes from these, so switching the
-# theme is just swapping one set of variables (plus a few native-widget fixes).
 LIGHT_VARS = """
   --hf-navy:#12304f; --hf-navy-2:#1d466f; --hf-accent:#12304f; --hf-on-accent:#ffffff;
   --hf-ink:#1b2733; --hf-ink-2:#33414f; --hf-muted:#5b6b7b;
@@ -310,8 +305,7 @@ button[kind="tertiary"]:hover p{text-decoration:underline;}
 </style>
 """
 
-# Extra rules for dark mode only: Streamlit's own widgets are themed by
-# .streamlit/config.toml (light), so they need to be recoloured here.
+
 DARK_WIDGET_CSS = """
 <style>
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"]{background:var(--hf-bg) !important;}
@@ -440,17 +434,12 @@ button[kind="secondary"]:hover{border-color:var(--hf-navy-2) !important;}
 """
 
 
-
 def theme_css(dark: bool) -> str:
     variables = DARK_VARS if dark else LIGHT_VARS
     scheme = "dark" if dark else "light"
     css = f"<style>:root{{{variables} color-scheme:{scheme};}}</style>" + CSS
     return css + DARK_WIDGET_CSS if dark else css
 
-
-# ---------------------------------------------------------------------------
-# Small helpers
-# ---------------------------------------------------------------------------
 
 def esc(value) -> str:
     return html.escape("" if value is None else str(value))
@@ -513,7 +502,6 @@ def find_by_reference(query: str, cases: list) -> list:
     return exact + sort_queue(partial)
 
 
-# Safety Engine signal codes (backend/safety_engine.py), in words a reviewer reads.
 SAFETY_SIGNAL_TEXT = {
     "POWER": "loss of power",
     "MEDICATION": "medication or medical equipment",
@@ -606,10 +594,6 @@ def cases_to_csv(cases: list) -> str:
     return buffer.getvalue()
 
 
-# ---------------------------------------------------------------------------
-# Backend calls
-# ---------------------------------------------------------------------------
-
 def backend_base() -> str:
     """The backend address from Settings, tidied: blank -> default, missing scheme -> http://."""
     url = (st.session_state.get("backend_url") or "").strip() or DEFAULT_BACKEND_URL
@@ -632,7 +616,7 @@ def get_health():
 
 
 def get_cases(health):
-    # Skip the second call when the backend is already known to be down, so the page stays quick.
+
     if health is None:
         return [], "offline"
     try:
@@ -657,23 +641,22 @@ def explain_error(exc: Exception) -> str:
     return "The backend sent a response the app could not read."
 
 
-# Same column names the backend accepts in data_loader.COLUMN_ALIASES.
 MESSAGE_COLUMN_ALIASES = {"message", "text", "message_text", "content"}
 
 
 def read_batch_messages(uploaded):
     """Read the uploaded CSV in the browser session. Returns (messages, error)."""
-    import pandas as pd  # installed with Streamlit
+    import pandas as pd
 
     raw = uploaded.getvalue()
     df = None
-    for encoding in ("utf-8-sig", "cp1252"):  # cp1252 covers CSVs saved from Excel on Windows
+    for encoding in ("utf-8-sig", "cp1252"):
         try:
             df = pd.read_csv(io.BytesIO(raw), encoding=encoding)
             break
         except UnicodeDecodeError:
             continue
-        except Exception as exc:  # empty file, malformed rows, ...
+        except Exception as exc:
             return [], f"Could not read this CSV: {exc}"
     if df is None:
         return [], "Could not read this CSV. Save it as UTF-8 and try again."
@@ -688,7 +671,7 @@ def read_batch_messages(uploaded):
     for index, value in df[column].items():
         if pd.isna(value) or not str(value).strip():
             continue
-        messages.append((index + 2, str(value).strip()))  # +2 = spreadsheet row (header is row 1)
+        messages.append((index + 2, str(value).strip()))
     if not messages:
         return [], "The message column is empty."
     return messages, None
@@ -706,7 +689,7 @@ def run_batch(messages):
         try:
             results.append(api("POST", "/triage", timeout=120, json={"message": text}))
         except requests.exceptions.ConnectionError as exc:
-            # Backend is down: stop instead of failing every remaining row. This row was not saved either.
+
             skipped = len(messages) - i + 1
             break
         except requests.exceptions.RequestException as exc:
@@ -727,10 +710,6 @@ def run_batch(messages):
     return {"summary": {"total_messages": len(results)}, "results": results, "failed": failed,
             "skipped": skipped}
 
-
-# ---------------------------------------------------------------------------
-# HTML renderers
-# ---------------------------------------------------------------------------
 
 def service_status(health) -> str:
     if health is None:
@@ -753,8 +732,8 @@ def render_header(subtitle: str):
 
 def render_case(case: dict, show_message: bool = True):
     """One case, as plain facts: urgency, who analysed it, and where it is in human review."""
-    # Lead with the urgency that now applies (the reviewer's, once they have decided), so the card agrees
-    # with the queue table; when the reviewer changed it, the AI's call is shown next to it.
+
+
     urgency = current_urgency(case)
     state_css, state_text = review_state(case)
     ai_note = (f'<span class="hf-ai">AI said {esc(case.get("urgency"))}</span>' if was_overridden(case) else "")
@@ -793,7 +772,7 @@ def render_case(case: dict, show_message: bool = True):
         notes += (
             '<div class="hf-note info">Urgent-sounding wording was noted. It does not change the urgency.</div>'
         )
-    safety_notes = case.get("safety_notes")  # findings from backend/safety_engine.py
+    safety_notes = case.get("safety_notes")
     if safety_notes:
         text = " ".join(map(str, safety_notes)) if isinstance(safety_notes, list) else str(safety_notes)
         notes += f'<div class="hf-note warn"><b>Safety check.</b> {esc(text)}</div>'
@@ -874,10 +853,6 @@ def render_intro(title: str, text: str = ""):
     st.markdown(f'<div class="hf-intro"><h1>{esc(title)}</h1>{lede}</div>', unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------------------
-# Human review
-# ---------------------------------------------------------------------------
-
 def render_review(case: dict, prefix: str):
     """Human decision step. The AI recommends; the reviewer confirms or overrides (with a reason)."""
     case_id = case["id"]
@@ -906,7 +881,7 @@ def render_review(case: dict, prefix: str):
             label = "Update decision"
         else:
             label = f"Override to {final}" if overriding else f"Confirm {final}"
-        # Same reason as Analyse: the reason box only reaches the app when it loses focus, so check on click.
+
         if st.button(label, type="primary", key=f"save_{key}"):
             if missing_reason:
                 st.error("Add a reason for the override. It is kept with the case.")
@@ -944,10 +919,6 @@ def render_review(case: dict, prefix: str):
         review_form(ai_urgency, "", editing=False)
 
 
-# ---------------------------------------------------------------------------
-# Page
-# ---------------------------------------------------------------------------
-
 st.set_page_config(
     page_title="HumanFirst AI",
     page_icon="\U0001F4E8",
@@ -957,7 +928,7 @@ st.set_page_config(
 
 
 def _theme_from_url() -> bool:
-    # ?theme=light / ?theme=dark in the address bar keeps the choice across page refreshes.
+
     return st.query_params.get("theme", "dark") != "light"
 
 
@@ -988,8 +959,8 @@ for key, default in {
 def render_settings():
     """Small, out-of-the-way settings: theme, backend address, export and demo reset."""
     with st.popover("Settings", icon=":material/settings:", width="content"):
-        # The pop-up's contents are rebuilt whenever it opens, so each control is given its current
-        # value explicitly; "dark_mode" and "backend_url" are the source of truth, not the widgets.
+
+
         st.toggle("Dark mode", value=st.session_state["dark_mode"], key="dark_mode_toggle",
                   on_change=_apply_theme_toggle)
         st.text_input("Backend address", value=st.session_state["backend_url"], key="backend_url_input",
@@ -998,7 +969,7 @@ def render_settings():
             "Export all cases (CSV)", data=cases_to_csv(cases), disabled=not cases, width="stretch",
             file_name=f"humanfirst_cases_{datetime.now():%Y%m%d_%H%M%S}.csv", mime="text/csv",
         )
-        # Shown on phones only, where the masthead has no room for the "Citizen portal" button.
+
         st.button("Citizen portal", key="to_citizen_menu", on_click=switch_view, args=("citizen",), width="stretch")
         with st.expander("Reset demo data"):
             st.caption("Permanently deletes every stored case.")
@@ -1026,19 +997,19 @@ st.session_state.setdefault("view", _view_from_url())
 view = st.session_state["view"]
 
 health = get_health()
-# Citizens never see the case list, so only the staff portal loads it.
+
 cases, cases_error = get_cases(health) if view == "staff" else ([], None)
 
 PAGES = ["Review queue", "Batch upload", "Dashboard"]
-if st.session_state.get("page") not in PAGES:  # e.g. a page that no longer exists
+if st.session_state.get("page") not in PAGES:
     st.session_state.pop("page", None)
-# Bumping this number gives the queue filters fresh keys, i.e. resets them to their defaults.
+
 st.session_state.setdefault("q_filters_version", 0)
 
 awaiting_all = sort_queue([c for c in cases if needs_review(c)])
 
 render_header("Contact us" if view == "citizen" else "Staff portal")
-# Controls on the right of the masthead share one row, so they can never cover each other.
+
 with st.container(key="settings", horizontal=True, vertical_alignment="center", gap="small", width="stretch"):
     if view == "citizen":
         st.button("Staff portal", key="to_staff", on_click=switch_view, args=("staff",), icon=":material/badge:")
@@ -1050,7 +1021,6 @@ with st.container(key="settings", horizontal=True, vertical_alignment="center", 
         render_settings()
 
 
-# ---- Citizen portal -----------------------------------------------------------
 def citizen_portal():
     with st.container(key="citizen"):
         reference = st.session_state.get("citizen_ref")
@@ -1062,7 +1032,7 @@ def citizen_portal():
             )
             st.markdown("### What happens next")
             st.markdown(
-                "A staff member will read your message and contact you. Messages about safety, health "
+                "Your message has been received and routed for assessment. Messages about safety, health "
                 "or housing are looked at first.\n\nKeep your reference number. Quote it if you contact us "
                 "about this message."
             )
@@ -1088,7 +1058,7 @@ def citizen_portal():
                                placeholder="Describe your situation and what you need")
         if st.session_state.get("citizen_error"):
             st.error(st.session_state["citizen_error"])
-        # Not disabled while the box looks empty: Streamlit only sends typed text when the box loses focus.
+
         if st.button("Send message", type="primary", disabled=health is None):
             if not message.strip():
                 st.session_state["citizen_error"] = "Enter your message before sending."
@@ -1108,7 +1078,7 @@ if view == "citizen":
     citizen_portal()
     page = None
 else:
-    # Top navigation (a styled radio, so the chosen section survives the reruns after saving a decision).
+
     page = st.radio(
         "Section", PAGES, horizontal=True, label_visibility="collapsed", key="page",
         format_func=lambda name: name + (f" ({len(awaiting_all)})" if name == PAGES[0] and awaiting_all else ""),
@@ -1125,7 +1095,6 @@ else:
         )
 
 
-# ---- Review queue -----------------------------------------------------------
 if page == PAGES[0]:
     render_intro("Review queue")
     if cases_error == "offline":
@@ -1146,7 +1115,7 @@ if page == PAGES[0]:
         searching = bool(query)
 
         c_status, c_search, c_level = st.container(key="q_filters").columns([5, 3, 2], vertical_alignment="center")
-        # While a reference is being searched, the queue filters do not apply, so they are greyed out.
+
         status = c_status.radio("Show", list(counts), horizontal=True, label_visibility="collapsed",
                                 key=f"q_status_{v}", format_func=lambda s: f"{s} ({counts[s]})",
                                 disabled=searching)
@@ -1186,13 +1155,13 @@ if page == PAGES[0]:
                 render_empty("Nothing waiting for review." if status == "Awaiting review" else "No cases match.")
         else:
             by_id = {c["id"]: c for c in shown}
-            # Open the most urgent case straight away; a selection that left the list falls back to the top.
-            # A new search always opens its best match.
+
+
             st.session_state.setdefault("q_case_version", 0)
             if (st.session_state.get(f"queue_case_{st.session_state['q_case_version']}") not in by_id
                     or st.session_state.get("q_last_search") != query):
                 st.session_state["q_last_search"] = query
-                st.session_state["q_case_version"] += 1  # fresh widget, so it starts on the top case
+                st.session_state["q_case_version"] += 1
             case_key = f"queue_case_{st.session_state['q_case_version']}"
             chosen = st.session_state.get(case_key, shown[0]["id"])
             render_table(shown, selected_id=chosen)
@@ -1204,7 +1173,7 @@ if page == PAGES[0]:
             render_case(by_id[chosen])
             render_review(by_id[chosen], "queue")
 
-# ---- Batch -----------------------------------------------------------------
+
 if page == PAGES[1]:
     render_intro("Batch upload", "Upload a CSV with a message column. Every row is analysed and saved.")
     uploaded = st.file_uploader("CSV file", type=["csv"], label_visibility="collapsed")
@@ -1248,7 +1217,7 @@ if page == PAGES[1]:
             render_stats(stats)
             render_table(sort_queue(results))
 
-# ---- Dashboard ---------------------------------------------------------------
+
 if page == PAGES[2]:
     render_intro("Dashboard")
     if cases_error == "offline":

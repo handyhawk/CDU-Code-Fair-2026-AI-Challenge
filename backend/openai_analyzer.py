@@ -7,11 +7,7 @@ from pydantic import BaseModel
 from data_loader import ESCALATION_MAP
 
 
-# Load OPENAI_API_KEY from backend/.env
 load_dotenv()
-
-client = OpenAI()
-
 
 class Urgency(str, Enum):
     critical = "Critical"
@@ -88,6 +84,9 @@ Human staff remain responsible for the final decision.
 
 
 def classify_message(message: str) -> OpenAIClassification:
+    """Classify a message using the primary OpenAI model."""
+    client = OpenAI()
+
     response = client.responses.parse(
         model="gpt-5-mini",
         input=[
@@ -119,18 +118,16 @@ def to_backend_dict(
         "message": message,
         "urgency": urgency,
 
-        # OpenAI structured output does not provide a calibrated probability.
-        # None is more honest than pretending it is 100% confident.
-        "urgency_confidence": 0.0,
+
+        "urgency_confidence": None,
 
         "category": result.category.value,
-        "category_confidence": 0.0,
+        "category_confidence": None,
         "route": result.route.value,
 
         "escalation": ESCALATION_MAP.get(urgency, "No"),
 
-        # HumanFirst rule:
-        # Critical and High cases require human review.
+
         "escalate_to_human": urgency in {"Critical", "High"},
 
         "matched_risk_keywords": [],
