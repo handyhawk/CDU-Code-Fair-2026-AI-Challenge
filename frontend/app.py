@@ -259,7 +259,9 @@ div[role="radiogroup"]{gap:8px;}
 [data-testid="stRadioOption"][data-selected="true"] p, label[data-baseweb="radio"]:has(input:checked) p{color:var(--hf-on-accent);}
 
 /* settings: a button in the top-right corner of the masthead */
-.st-key-settings{position:absolute; top:13px; right:max(2rem, calc((100% - 1036px) / 2)); width:auto !important; z-index:120;}
+/* anchored to the content column (not the window), so it scrolls away with the masthead */
+.block-container{position:relative;}
+.st-key-settings{position:absolute; top:13px; right:2rem; width:auto !important; z-index:120;}
 .st-key-settings button{background:transparent !important; border:1px solid rgba(255,255,255,.55) !important;
   min-height:38px; padding:0 14px;}
 .st-key-settings button, .st-key-settings button *{color:#fff !important;}
