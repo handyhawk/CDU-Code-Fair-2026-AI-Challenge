@@ -1,3 +1,2 @@
-# Pinned so every team machine draws the interface the same way (tested on 1.64.0).
 streamlit==1.64.0
 requests
